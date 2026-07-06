@@ -1,11 +1,17 @@
-import { getDoctorShareSummary } from "@/lib/queries/finance";
+import { getDoctorShareSummary, getOtBreakdown } from "@/lib/queries/finance";
 import { formatBDT, formatNumber, formatPercent } from "@/lib/format";
 
 export default async function DoctorsPage() {
-  const rows = await getDoctorShareSummary();
+  const [rows, otRows] = await Promise.all([getDoctorShareSummary(), getOtBreakdown()]);
+
+  const otByDoctor = otRows.reduce<Record<string, typeof otRows>>((acc, r: any) => {
+    const key = r.doctor_name ?? "Unattributed";
+    (acc[key] ??= []).push(r);
+    return acc;
+  }, {});
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold">Doctor Revenue Share</h1>
         <p className="text-sm text-slate-500">
@@ -47,6 +53,47 @@ export default async function DoctorsPage() {
           </tbody>
         </table>
       </div>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">OT/Surgery Revenue Breakdown</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          OT/Surgery is 100% doctor share, but is billed under several different line-item types — broken out here
+          instead of lumped into one category so it&apos;s clear what&apos;s driving each doctor&apos;s OT payout.
+        </p>
+        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Doctor</th>
+                <th className="px-3 py-2">OT Sub-type</th>
+                <th className="px-3 py-2 text-right">Invoices</th>
+                <th className="px-3 py-2 text-right">Line Items</th>
+                <th className="px-3 py-2 text-right">Net Revenue</th>
+                <th className="px-3 py-2 text-right">Doctor Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(otByDoctor).map(([doctorName, entries]) =>
+                entries.map((r: any, idx: number) => (
+                  <tr key={`${doctorName}-${r.ot_subcategory}`} className="border-t border-slate-100">
+                    {idx === 0 && (
+                      <td className="px-3 py-2 font-medium" rowSpan={entries.length}>{doctorName}</td>
+                    )}
+                    <td className="px-3 py-2">{r.ot_subcategory}</td>
+                    <td className="px-3 py-2 text-right">{formatNumber(r.invoice_count)}</td>
+                    <td className="px-3 py-2 text-right">{formatNumber(r.line_item_count)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(r.net_revenue)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(r.doctor_share_total)}</td>
+                  </tr>
+                ))
+              )}
+              {otRows.length === 0 && (
+                <tr><td colSpan={6} className="px-3 py-6 text-center text-slate-400">No OT/Surgery revenue in this period.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

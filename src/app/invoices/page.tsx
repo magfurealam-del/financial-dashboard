@@ -78,7 +78,15 @@ export default async function InvoicesPage({
                     {r.invoice_no}
                   </Link>
                 </td>
-                <td className="px-3 py-2 whitespace-nowrap">{formatDateBD(r.invoice_date)}</td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {r.invoice_date ? (
+                    formatDateBD(r.invoice_date)
+                  ) : (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700" title={r.date_status_note ?? undefined}>
+                      date unknown (historical carryover)
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2">{r.patient_name ?? "—"}</td>
                 <td className="px-3 py-2">{r.patient_type ?? "—"}</td>
                 <td className="px-3 py-2">{r.department ?? "—"}</td>

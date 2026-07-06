@@ -35,6 +35,8 @@ type InvoiceSummaryRow = {
   needs_review: boolean;
   review_reason: string | null;
   created_at: string;
+  is_date_unknown_carryover: boolean;
+  date_status_note: string | null;
 };
 
 function applyInvoiceFilters(query: any, filters: FinanceFilters) {
@@ -184,6 +186,16 @@ export async function getDoctorShareSummary() {
     .from("vw_finance_doctor_share_summary")
     .select("*")
     .order("net_revenue_attributed", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getOtBreakdown() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_finance_ot_breakdown")
+    .select("*")
+    .order("net_revenue", { ascending: false });
   if (error) throw error;
   return data ?? [];
 }

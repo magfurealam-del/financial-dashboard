@@ -14,7 +14,20 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold">Invoice {invoice.invoice_no}</h1>
-        <p className="text-sm text-slate-500">{formatDateBD(invoice.invoice_date)} · {invoice.invoice_type} · {invoice.invoice_status}</p>
+        <p className="text-sm text-slate-500">
+          {invoice.invoice_date ? (
+            formatDateBD(invoice.invoice_date)
+          ) : (
+            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700">date unknown (historical carryover)</span>
+          )}
+          {" · "}{invoice.invoice_type} · {invoice.invoice_status}
+        </p>
+        {invoice.is_date_unknown_carryover && (
+          <p className="mt-1 text-xs text-amber-700">
+            This invoice&apos;s service date is intentionally blank per data policy: no true service date was available
+            when this historical collection record was entered, so a date was not fabricated.
+          </p>
+        )}
       </div>
 
       <section className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-4">
