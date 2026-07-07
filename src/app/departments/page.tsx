@@ -1,23 +1,33 @@
 import Link from "next/link";
-import { getDepartmentSummary } from "@/lib/queries/finance";
+import { getDepartmentSummaryFiltered } from "@/lib/queries/finance";
+import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatNumber, formatPercent } from "@/lib/format";
-import { todayBD } from "@/lib/format";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
-// This page shows all-time totals, so drill-down links use a wide date range
-// rather than whatever the shared filter bar currently has selected.
-const ALL_TIME_FROM = "2000-01-01";
-
-export default async function DepartmentsPage() {
-  const rows = await getDepartmentSummary();
+export default async function DepartmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedParams = await searchParams;
+  const filters = parseFiltersFromSearchParams(resolvedParams);
+  const rows = await getDepartmentSummaryFiltered(filters);
+  const qs = new URLSearchParams(resolvedParams as Record<string, string>).toString();
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Department Performance</h1>
-          <p className="text-sm text-slate-500">All-time totals per department (invoice grain, excludes void/cancelled).</p>
+          <p className="text-sm text-slate-500">
+            {filters.dateFrom} to {filters.dateTo} · invoice grain, excludes void/cancelled. Adjust the filter bar
+            above, then click Update Table.
+          </p>
         </div>
-        <a href="/api/export/departments" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+        <div className="flex items-center gap-2">
+          <RefreshTableButton />
+          <a href={`/api/export/departments?${qs}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+        </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
@@ -43,7 +53,7 @@ export default async function DepartmentsPage() {
               <tr key={r.department} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-3 py-2 font-medium">
                   <Link
-                    href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&department=${encodeURIComponent(r.department)}`}
+                    href={`/invoices?${new URLSearchParams({ ...(resolvedParams as Record<string, string>), department: r.department }).toString()}`}
                     className="text-blue-700 hover:underline"
                   >
                     {r.department}
@@ -63,6 +73,9 @@ export default async function DepartmentsPage() {
                 <td className="px-3 py-2 text-right">{formatBDT(r.avg_invoice_value)}</td>
               </tr>
             ))}
+            {rows.length === 0 && (
+              <tr><td colSpan={13} className="px-3 py-6 text-center text-slate-400">No invoices found for these filters.</td></tr>
+            )}
           </tbody>
         </table>
       </div>

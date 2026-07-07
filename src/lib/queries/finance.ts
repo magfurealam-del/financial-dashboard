@@ -191,6 +191,81 @@ export async function getDepartmentSummary() {
   return data ?? [];
 }
 
+export async function getDepartmentSummaryFiltered(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("vw_finance_invoice_summary")
+    .select("department,invoice_id,patient_id,gross_amount,net_amount,collected_amount,discount_amount,refund_amount,outstanding_amount,doctor_share_total")
+    .not("department", "is", null);
+  query = applyInvoiceFilters(query, filters);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const byDept = new Map<
+    string,
+    {
+      invoiceIds: Set<number>;
+      patientIds: Set<number>;
+      gross: number;
+      net: number;
+      collected: number;
+      discount: number;
+      refund: number;
+      outstanding: number;
+      doctorShare: number;
+    }
+  >();
+
+  for (const r of (data ?? []) as any[]) {
+    const key = r.department as string;
+    if (!byDept.has(key)) {
+      byDept.set(key, {
+        invoiceIds: new Set(),
+        patientIds: new Set(),
+        gross: 0,
+        net: 0,
+        collected: 0,
+        discount: 0,
+        refund: 0,
+        outstanding: 0,
+        doctorShare: 0,
+      });
+    }
+    const entry = byDept.get(key)!;
+    entry.invoiceIds.add(r.invoice_id);
+    if (r.patient_id) entry.patientIds.add(r.patient_id);
+    entry.gross += Number(r.gross_amount) || 0;
+    entry.net += Number(r.net_amount) || 0;
+    entry.collected += Number(r.collected_amount) || 0;
+    entry.discount += Number(r.discount_amount) || 0;
+    entry.refund += Number(r.refund_amount) || 0;
+    entry.outstanding += Number(r.outstanding_amount) || 0;
+    entry.doctorShare += Number(r.doctor_share_total) || 0;
+  }
+
+  return Array.from(byDept.entries())
+    .map(([department, v]) => {
+      const invoiceCount = v.invoiceIds.size;
+      const contributionMargin = v.net - v.doctorShare;
+      return {
+        department,
+        invoice_count: invoiceCount,
+        patient_count: v.patientIds.size,
+        gross_revenue: v.gross,
+        net_revenue: v.net,
+        collected_revenue: v.collected,
+        discount_total: v.discount,
+        refund_total: v.refund,
+        outstanding_revenue: v.outstanding,
+        doctor_share_total: v.doctorShare,
+        contribution_margin: contributionMargin,
+        contribution_margin_pct: v.net ? (contributionMargin / v.net) * 100 : null,
+        avg_invoice_value: invoiceCount ? v.net / invoiceCount : null,
+      };
+    })
+    .sort((a, b) => b.net_revenue - a.net_revenue);
+}
+
 export async function getDoctorShareSummary() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
