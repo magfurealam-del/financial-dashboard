@@ -57,8 +57,9 @@ export default async function DoctorsPage() {
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">OT/Surgery Revenue Breakdown</h2>
         <p className="mb-3 text-xs text-slate-500">
-          OT/Surgery is 100% doctor share, but is billed under several different line-item types — broken out here
-          instead of lumped into one category so it&apos;s clear what&apos;s driving each doctor&apos;s OT payout.
+          OT Team Charge (including Daycare OT Bill, which is the same doctor fee for daycare cases) is 100% doctor
+          share. Post-Operative Charge was confirmed to be a hospital-side charge, not doctor share, and is shown at
+          0% here rather than being lumped into the doctor&apos;s payout.
         </p>
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
           <table className="w-full text-sm">
