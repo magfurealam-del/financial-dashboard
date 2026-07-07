@@ -22,10 +22,13 @@ export default async function PatientsPage({
           <h1 className="text-lg font-semibold">Patient Revenue</h1>
           <p className="text-sm text-slate-500">{count} patients with billing history</p>
         </div>
-        <form action="/patients" method="get" className="flex items-center gap-2">
-          <input type="text" name="q" defaultValue={search} placeholder="Search name or phone…" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
-          <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">Search</button>
-        </form>
+        <div className="flex items-center gap-2">
+          <form action="/patients" method="get" className="flex items-center gap-2">
+            <input type="text" name="q" defaultValue={search} placeholder="Search name or phone…" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
+            <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">Search</button>
+          </form>
+          <a href={`/api/export/patients${search ? `?q=${encodeURIComponent(search)}` : ""}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

@@ -12,13 +12,16 @@ export default async function DoctorsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold">Doctor Revenue Share</h1>
-        <p className="text-sm text-slate-500">
-          Doctor share is computed at line-item level from <code>doctor_share_pct</code> (populated from category and
-          item-level share rules). There is no monthly-doctor-invoice table yet to validate/override these amounts or
-          track paid-vs-payable status — see README for this schema gap.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Doctor Revenue Share</h1>
+          <p className="text-sm text-slate-500">
+            Doctor share is computed at line-item level from <code>doctor_share_pct</code> (populated from category and
+            item-level share rules). There is no monthly-doctor-invoice table yet to validate/override these amounts or
+            track paid-vs-payable status — see README for this schema gap.
+          </p>
+        </div>
+        <a href="/api/export/doctors" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">

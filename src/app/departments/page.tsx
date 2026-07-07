@@ -6,9 +6,12 @@ export default async function DepartmentsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">Department Performance</h1>
-        <p className="text-sm text-slate-500">All-time totals per department (invoice grain, excludes void/cancelled).</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Department Performance</h1>
+          <p className="text-sm text-slate-500">All-time totals per department (invoice grain, excludes void/cancelled).</p>
+        </div>
+        <a href="/api/export/departments" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
