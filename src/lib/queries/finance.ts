@@ -90,7 +90,17 @@ export async function getInvoiceDetail(invoiceId: number) {
   if (payErr) throw payErr;
   if (discErr) throw discErr;
 
-  return { invoice, lineItems: lineItems ?? [], payments: payments ?? [], discounts: discounts ?? [] };
+  let admission = null;
+  if (invoice?.admission_id) {
+    const { data, error } = await supabase
+      .from("vw_finance_admission_summary")
+      .select("admission_id, an, ward_name, bed_name, admission_type, admitted_on, discharged_on, length_of_stay_days")
+      .eq("admission_id", invoice.admission_id)
+      .single();
+    if (!error) admission = data;
+  }
+
+  return { invoice, lineItems: lineItems ?? [], payments: payments ?? [], discounts: discounts ?? [], admission };
 }
 
 export async function getExecutiveSummary(filters: FinanceFilters) {
@@ -227,6 +237,18 @@ export async function getValidationChecks() {
   const { data, error } = await supabase.from("vw_finance_validation_checks").select("*");
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getAdmissionSummary(opts: { page?: number; pageSize?: number; admissionType?: string } = {}) {
+  const supabase = getSupabaseServerClient();
+  const page = opts.page ?? 0;
+  const pageSize = opts.pageSize ?? 25;
+  let query = supabase.from("vw_finance_admission_summary").select("*", { count: "exact" });
+  if (opts.admissionType) query = query.eq("admission_type", opts.admissionType);
+  query = query.order("admitted_on", { ascending: false, nullsFirst: false }).range(page * pageSize, page * pageSize + pageSize - 1);
+  const { data, error, count } = await query;
+  if (error) throw error;
+  return { rows: data ?? [], count: count ?? 0 };
 }
 
 export async function getMarketingSourceSummary() {

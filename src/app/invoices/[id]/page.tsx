@@ -7,7 +7,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const invoiceId = Number(id);
   if (!Number.isFinite(invoiceId)) notFound();
 
-  const { invoice, lineItems, payments, discounts } = await getInvoiceDetail(invoiceId);
+  const { invoice, lineItems, payments, discounts, admission } = await getInvoiceDetail(invoiceId);
   if (!invoice) notFound();
 
   return (
@@ -40,6 +40,18 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         <Field label="Payment Status" value={invoice.payment_status} />
         <Field label="Reconciliation" value={invoice.reconciliation_status} />
       </section>
+
+      {admission && (
+        <section className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:grid-cols-4">
+          <Field label="Admission #" value={admission.an ?? "—"} />
+          <Field label="Admission Type" value={admission.admission_type ?? "—"} />
+          <Field label="Ward" value={admission.ward_name ?? "—"} />
+          <Field label="Bed" value={admission.bed_name ?? "—"} />
+          <Field label="Admitted" value={formatDateTimeBD(admission.admitted_on)} />
+          <Field label="Discharged" value={admission.discharged_on ? formatDateTimeBD(admission.discharged_on) : "—"} />
+          <Field label="Length of Stay" value={admission.length_of_stay_days ? `${admission.length_of_stay_days} day(s)` : "—"} />
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Gross" value={formatBDT(invoice.gross_amount)} />

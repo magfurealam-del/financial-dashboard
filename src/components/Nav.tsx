@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/departments", label: "Departments" },
   { href: "/doctors", label: "Doctor Shares" },
   { href: "/patients", label: "Patients" },
+  { href: "/admissions", label: "Admissions" },
   { href: "/marketing", label: "Marketing Source" },
   { href: "/reconciliation", label: "Data Quality" },
   { href: "/validation", label: "Validation" },

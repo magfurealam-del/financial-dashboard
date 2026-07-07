@@ -165,6 +165,11 @@ guessing wrong here would corrupt otherwise-correct figures:
    paid-exceeds-invoice, duplicate patient phone) are unrelated data-quality items, still open.
 4. **No payment method breakdown** beyond `invoice_payments.pay_mode`/`pay_type`, which are free
    text (not yet normalized against a lookup table).
+5b. **Admission/ward/bed/length-of-stay drill-down is now built** (see `/admissions`, backed by
+   `vw_finance_admission_summary`), linked from IPD invoice detail pages too. Note: `admission_type`
+   is `'Daycare'` for all non-inpatient case types (OPD/Consultancy/Pharmacy/Therapy/Lab) — only 30 of
+   757 admissions are true `'IPD'` inpatient stays with real ward/bed/LOS data; the rest have no ward
+   assigned (shows as "OPD"/"Pharmacy" as a case-type label, not a physical ward).
 5. **No branch/location or cashier/user field on `invoices`.** Marketing source attribution *is now*
    joined in (see `/marketing`, backed by `vw_finance_invoice_marketing` /
    `vw_finance_marketing_source_summary`): direct `crm_billing_links.invoice_id` match first, falling
