@@ -3,26 +3,38 @@
 A finance/management dashboard for Ekagra Hospital / Ekagra Health, built on Next.js (App Router) +
 TypeScript + Tailwind, reading live data from an existing Supabase Postgres database.
 
-## Status: MVP
+## Status: Phase 2 complete
 
-This is phase 1 of a phased build. Implemented so far:
+Phase 1 (MVP) + phase 2 (drill-downs, validation, marketing attribution, admissions) are both done.
+Implemented so far:
 
-- Executive Summary (KPI cards with period-over-period change, department revenue breakdown)
-- Daily / Weekly / Monthly trend view with charts + toggle
+- Executive Summary (every KPI card clickable through to filtered invoices, period-over-period
+  change, department revenue breakdown)
+- Daily / Weekly / Monthly trend view with charts + toggle; every period row drills into its exact
+  date range
 - Invoice table (search, sort by date, pagination, CSV export) + invoice detail drill-down
-  (line items, payments, discounts, doctor share, contribution margin)
-- Department performance rollup
-- Doctor revenue share rollup
-- Patient revenue rollup (search, pagination)
-- Data Quality / Reconciliation page (grouped exception list)
+  (line items, payments, discounts, doctor share, contribution margin, admission/ward/bed/LOS when
+  applicable)
+- Department performance rollup (CSV export, drill-down to filtered invoices)
+- Doctor revenue share rollup + OT/Surgery sub-category breakdown (CSV export, drill-down)
+- Patient revenue rollup (search, pagination, CSV export, drill-down to that patient's invoices)
+- Admissions page: ward/bed/length-of-stay for IPD, filterable IPD/Daycare/All (CSV export)
+- Revenue by Marketing Source (CSV export): CRM/lead attribution joined in, with coverage %
+- Data Validation / QA page: 9 automated invariant checks against live data (CSV export)
+- Data Quality / Reconciliation page (grouped exception list, CSV export)
 - Persistent top filter bar (date range, department, doctor, patient type, payment status) shared
   across all pages via URL query params
 - Reusable Supabase query layer (`src/lib/queries/finance.ts`) and metric utilities
   (`src/lib/metrics.ts`), BDT + Asia/Dhaka formatting (`src/lib/format.ts`)
+- `refresh_finance_derived_data()` Postgres function (doctor-share resolution, category mapping,
+  invoice-doctor backfill) runs **automatically** via database triggers on `invoices`/
+  `invoice_line_items` inserts — self-healing as new invoices land, regardless of which external
+  tool performs the import (verified: no code access to that external OCR/Pabbly pipeline was
+  available or needed).
 
-Not yet built (left for a follow-up iteration): campaign/marketing-source breakdowns, cashier/user
-attribution, admission/ward/bed drill-downs, automated QA/validation script, materialized
-summary tables for performance at scale.
+Not yet built (left for a follow-up iteration): cashier/user attribution (no such field exists on
+`invoices` yet), branch/location reporting (single-location hospital today), materialized summary
+tables for performance at scale (not needed yet at ~900 invoices).
 
 ## Setup
 
