@@ -43,6 +43,7 @@ function applyInvoiceFilters(query: any, filters: FinanceFilters) {
   query = query.gte("invoice_date", filters.dateFrom).lte("invoice_date", filters.dateTo);
   if (filters.department) query = query.eq("department", filters.department);
   if (filters.doctorId) query = query.eq("doctor_id", filters.doctorId);
+  if (filters.patientId) query = query.eq("patient_id", filters.patientId);
   if (filters.patientType) query = query.eq("patient_type", filters.patientType);
   if (filters.paymentStatus) query = query.eq("payment_status", filters.paymentStatus);
   return query;

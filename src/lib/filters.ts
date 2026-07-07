@@ -5,6 +5,7 @@ export interface FinanceFilters {
   dateTo: string;
   department?: string;
   doctorId?: number;
+  patientId?: number;
   patientType?: string;
   paymentStatus?: string;
 }
@@ -31,6 +32,7 @@ export function parseFiltersFromSearchParams(
     dateTo: get("to") || defaults.dateTo,
     department: get("department") || undefined,
     doctorId: get("doctorId") ? Number(get("doctorId")) : undefined,
+    patientId: get("patientId") ? Number(get("patientId")) : undefined,
     patientType: get("patientType") || undefined,
     paymentStatus: get("paymentStatus") || undefined,
   };

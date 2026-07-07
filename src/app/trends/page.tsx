@@ -41,6 +41,29 @@ export default async function TrendsPage({
     return `/trends?${p.toString()}`;
   };
 
+  function periodInvoicesHref(r: any): string {
+    const p = new URLSearchParams(qs);
+    p.delete("granularity");
+    let from: string;
+    let to: string;
+    if (granularity === "monthly") {
+      from = r.period_start;
+      const end = new Date(r.period_start);
+      end.setMonth(end.getMonth() + 1);
+      end.setDate(0);
+      to = end.toISOString().slice(0, 10);
+    } else if (granularity === "weekly") {
+      from = r.period_start;
+      to = r.period_end;
+    } else {
+      from = r.period_date;
+      to = r.period_date;
+    }
+    p.set("from", from);
+    p.set("to", to);
+    return `/invoices?${p.toString()}`;
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -97,8 +120,12 @@ export default async function TrendsPage({
             {rows.map((r: any, idx: number) => {
               const cmPct = r.net_revenue ? (r.contribution_margin / r.net_revenue) * 100 : null;
               return (
-                <tr key={idx} className="border-t border-slate-100">
-                  <td className="px-3 py-2 font-medium">{labelFmt(r)}</td>
+                <tr key={idx} className="border-t border-slate-100 hover:bg-slate-50">
+                  <td className="px-3 py-2 font-medium">
+                    <Link href={periodInvoicesHref(r)} className="text-blue-700 hover:underline">
+                      {labelFmt(r)}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2 text-right">{formatNumber(r.invoice_count)}</td>
                   <td className="px-3 py-2 text-right">{formatNumber(r.patient_count)}</td>
                   <td className="px-3 py-2 text-right">{formatBDT(r.gross_revenue)}</td>

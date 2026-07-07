@@ -1,5 +1,10 @@
+import Link from "next/link";
 import { getDoctorShareSummary, getOtBreakdown } from "@/lib/queries/finance";
-import { formatBDT, formatNumber, formatPercent } from "@/lib/format";
+import { formatBDT, formatNumber, formatPercent, todayBD } from "@/lib/format";
+
+// This page shows all-time totals, so drill-down links use a wide date range
+// rather than whatever the shared filter bar currently has selected.
+const ALL_TIME_FROM = "2000-01-01";
 
 export default async function DoctorsPage() {
   const [rows, otRows] = await Promise.all([getDoctorShareSummary(), getOtBreakdown()]);
@@ -39,8 +44,12 @@ export default async function DoctorsPage() {
           </thead>
           <tbody>
             {rows.map((r: any) => (
-              <tr key={r.doctor_id} className="border-t border-slate-100">
-                <td className="px-3 py-2 font-medium">{r.doctor_name}</td>
+              <tr key={r.doctor_id} className="border-t border-slate-100 hover:bg-slate-50">
+                <td className="px-3 py-2 font-medium">
+                  <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&doctorId=${r.doctor_id}`} className="text-blue-700 hover:underline">
+                    {r.doctor_name}
+                  </Link>
+                </td>
                 <td className="px-3 py-2">{r.doctor_specialty ?? "—"}</td>
                 <td className="px-3 py-2 text-right">{formatNumber(r.invoice_count)}</td>
                 <td className="px-3 py-2 text-right">{formatBDT(r.gross_revenue_attributed)}</td>
@@ -79,9 +88,13 @@ export default async function DoctorsPage() {
             <tbody>
               {Object.entries(otByDoctor).map(([doctorName, entries]) =>
                 entries.map((r: any, idx: number) => (
-                  <tr key={`${doctorName}-${r.ot_subcategory}`} className="border-t border-slate-100">
+                  <tr key={`${doctorName}-${r.ot_subcategory}`} className="border-t border-slate-100 hover:bg-slate-50">
                     {idx === 0 && (
-                      <td className="px-3 py-2 font-medium" rowSpan={entries.length}>{doctorName}</td>
+                      <td className="px-3 py-2 font-medium" rowSpan={entries.length}>
+                        <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&doctorId=${r.doctor_id}`} className="text-blue-700 hover:underline">
+                          {doctorName}
+                        </Link>
+                      </td>
                     )}
                     <td className="px-3 py-2">{r.ot_subcategory}</td>
                     <td className="px-3 py-2 text-right">{formatNumber(r.invoice_count)}</td>

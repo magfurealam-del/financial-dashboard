@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { getPatientSummary } from "@/lib/queries/finance";
-import { formatBDT, formatDateBD, formatNumber } from "@/lib/format";
+import { formatBDT, formatDateBD, formatNumber, todayBD } from "@/lib/format";
 
 const PAGE_SIZE = 25;
+// This page shows all-time totals, so drill-down links use a wide date range
+// rather than whatever the shared filter bar currently has selected.
+const ALL_TIME_FROM = "2000-01-01";
 
 export default async function PatientsPage({
   searchParams,
@@ -50,8 +53,12 @@ export default async function PatientsPage({
           </thead>
           <tbody>
             {rows.map((r: any) => (
-              <tr key={r.patient_id} className="border-t border-slate-100">
-                <td className="px-3 py-2 font-medium">{r.patient_name ?? "—"}</td>
+              <tr key={r.patient_id} className="border-t border-slate-100 hover:bg-slate-50">
+                <td className="px-3 py-2 font-medium">
+                  <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&patientId=${r.patient_id}`} className="text-blue-700 hover:underline">
+                    {r.patient_name ?? "—"}
+                  </Link>
+                </td>
                 <td className="px-3 py-2">{r.patient_phone ?? "—"}</td>
                 <td className="px-3 py-2">{formatDateBD(r.first_visit_date)}</td>
                 <td className="px-3 py-2">{formatDateBD(r.last_visit_date)}</td>

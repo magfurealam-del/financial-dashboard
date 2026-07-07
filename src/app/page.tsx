@@ -38,17 +38,17 @@ export default async function ExecutiveSummaryPage({
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <KpiCard label="Gross Revenue" value={formatBDT(current.grossRevenue)} changePct={periodOverPeriodChange(current.grossRevenue, previous.grossRevenue)} href={`/invoices?${qs}`} />
         <KpiCard label="Net Revenue" value={formatBDT(current.netRevenue)} changePct={periodOverPeriodChange(current.netRevenue, previous.netRevenue)} href={`/invoices?${qs}`} />
-        <KpiCard label="Collected Revenue" value={formatBDT(current.collectedRevenue)} changePct={periodOverPeriodChange(current.collectedRevenue, previous.collectedRevenue)} />
-        <KpiCard label="Outstanding Dues" value={formatBDT(current.outstandingRevenue)} changePct={periodOverPeriodChange(current.outstandingRevenue, previous.outstandingRevenue)} tone={current.outstandingRevenue > 0 ? "warning" : "default"} />
-        <KpiCard label="Discounts" value={formatBDT(current.discountTotal)} changePct={periodOverPeriodChange(current.discountTotal, previous.discountTotal)} />
-        <KpiCard label="Refunds / Adjustments" value={formatBDT(current.refundTotal)} changePct={periodOverPeriodChange(current.refundTotal, previous.refundTotal)} />
+        <KpiCard label="Collected Revenue" value={formatBDT(current.collectedRevenue)} changePct={periodOverPeriodChange(current.collectedRevenue, previous.collectedRevenue)} href={`/invoices?${qs}&paymentStatus=paid`} />
+        <KpiCard label="Outstanding Dues" value={formatBDT(current.outstandingRevenue)} changePct={periodOverPeriodChange(current.outstandingRevenue, previous.outstandingRevenue)} tone={current.outstandingRevenue > 0 ? "warning" : "default"} href={`/invoices?${qs}&paymentStatus=due`} />
+        <KpiCard label="Discounts" value={formatBDT(current.discountTotal)} changePct={periodOverPeriodChange(current.discountTotal, previous.discountTotal)} href={`/invoices?${qs}`} />
+        <KpiCard label="Refunds / Adjustments" value={formatBDT(current.refundTotal)} changePct={periodOverPeriodChange(current.refundTotal, previous.refundTotal)} href={`/invoices?${qs}&paymentStatus=refunded`} />
         <KpiCard label="Doctor Shares Payable" value={formatBDT(current.doctorShareTotal)} changePct={periodOverPeriodChange(current.doctorShareTotal, previous.doctorShareTotal)} href={`/doctors?${qs}`} />
-        <KpiCard label="Contribution Margin" value={formatBDT(cm)} changePct={periodOverPeriodChange(cm, prevCm)} />
-        <KpiCard label="Contribution Margin %" value={formatPercent(cmPct)} />
+        <KpiCard label="Contribution Margin" value={formatBDT(cm)} changePct={periodOverPeriodChange(cm, prevCm)} href={`/invoices?${qs}`} />
+        <KpiCard label="Contribution Margin %" value={formatPercent(cmPct)} href={`/invoices?${qs}`} />
         <KpiCard label="Number of Invoices" value={formatNumber(current.invoiceCount)} href={`/invoices?${qs}`} />
         <KpiCard label="Number of Patients" value={formatNumber(current.patientCount)} href={`/patients?${qs}`} />
-        <KpiCard label="Avg Revenue / Invoice" value={formatBDT(avgInvoiceValue(current.netRevenue, current.invoiceCount))} />
-        <KpiCard label="Avg Revenue / Patient" value={formatBDT(avgRevenuePerPatient(current.netRevenue, current.patientCount))} />
+        <KpiCard label="Avg Revenue / Invoice" value={formatBDT(avgInvoiceValue(current.netRevenue, current.invoiceCount))} href={`/invoices?${qs}`} />
+        <KpiCard label="Avg Revenue / Patient" value={formatBDT(avgRevenuePerPatient(current.netRevenue, current.patientCount))} href={`/patients?${qs}`} />
       </section>
 
       <section>
@@ -63,15 +63,19 @@ export default async function ExecutiveSummaryPage({
               </tr>
             </thead>
             <tbody>
-              {departmentEntries.map(([dept, amount]) => (
+              {departmentEntries.map(([dept, amount]) => {
+                const deptParams = new URLSearchParams(resolvedParams as Record<string, string>);
+                deptParams.set("department", dept);
+                return (
                 <tr key={dept} className="border-t border-slate-100">
                   <td className="px-4 py-2">
-                    <a className="hover:underline" href={`/departments?${qs}`}>{dept}</a>
+                    <a className="hover:underline" href={`/invoices?${deptParams.toString()}`}>{dept}</a>
                   </td>
                   <td className="px-4 py-2 text-right">{formatBDT(amount)}</td>
                   <td className="px-4 py-2 text-right">{formatPercent(current.netRevenue ? (amount / current.netRevenue) * 100 : null)}</td>
                 </tr>
-              ))}
+                );
+              })}
               {departmentEntries.length === 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-6 text-center text-slate-400">No invoices in this period.</td>
