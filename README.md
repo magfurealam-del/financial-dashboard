@@ -165,10 +165,14 @@ guessing wrong here would corrupt otherwise-correct figures:
    paid-exceeds-invoice, duplicate patient phone) are unrelated data-quality items, still open.
 4. **No payment method breakdown** beyond `invoice_payments.pay_mode`/`pay_type`, which are free
    text (not yet normalized against a lookup table).
-5. **No branch/location, marketing source, or cashier/user field on `invoices`.** Marketing
-   attribution exists in a separate CRM schema (`crm_billing_links`, `lead_attribution`,
-   `marketing_campaign_map`) that isn't joined into the finance views yet — a follow-up could link
-   `crm_billing_links.invoice_id` in to attribute revenue to marketing source.
+5. **No branch/location or cashier/user field on `invoices`.** Marketing source attribution *is now*
+   joined in (see `/marketing`, backed by `vw_finance_invoice_marketing` /
+   `vw_finance_marketing_source_summary`): direct `crm_billing_links.invoice_id` match first, falling
+   back to the patient's most recent `lead_attribution` record when no direct link exists. Only
+   **24% of net revenue** is attributed today — the CRM/lead pipeline simply hasn't matched most
+   patients yet (666 of 915 invoices have no CRM/lead record at all for that patient). This is a
+   coverage gap in the upstream CRM matching process, not something the dashboard can improve
+   further without better source data.
 6. **~75k BDT of net revenue sits on invoices with a null `invoice_date`**, and this is intentional
    for 18 of them (an explicit CFO data rule: historical carryover collections with no true service
    date — see `is_date_unknown_carryover` flag on `vw_finance_invoice_summary`, shown as a badge on

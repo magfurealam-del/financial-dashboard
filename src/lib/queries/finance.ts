@@ -229,6 +229,16 @@ export async function getValidationChecks() {
   return data ?? [];
 }
 
+export async function getMarketingSourceSummary() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_finance_marketing_source_summary")
+    .select("*")
+    .order("net_revenue", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getDepartmentOptions() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("invoices").select("department").not("department", "is", null);
