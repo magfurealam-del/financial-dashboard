@@ -239,6 +239,23 @@ export async function getValidationChecks() {
   return data ?? [];
 }
 
+export async function getIpdCurrentStatus() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("vw_finance_ipd_current_status").select("*");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getIpdDailyCensus() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_finance_ipd_daily_census")
+    .select("*")
+    .order("census_date");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getAdmissionSummary(opts: { page?: number; pageSize?: number; admissionType?: string } = {}) {
   const supabase = getSupabaseServerClient();
   const page = opts.page ?? 0;

@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { getAdmissionSummary } from "@/lib/queries/finance";
+import { getAdmissionSummary, getIpdCurrentStatus, getIpdDailyCensus } from "@/lib/queries/finance";
 import { formatBDT, formatDateTimeBD, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { IpdCensusChart } from "@/components/IpdCensusChart";
 
 const PAGE_SIZE = 25;
+const WARD_CATEGORIES = ["Female Ward", "Male Ward", "Single Cabin", "Shared Cabin", "VIP Ward"] as const;
 
 export default async function AdmissionsPage({
   searchParams,
@@ -13,13 +15,63 @@ export default async function AdmissionsPage({
   const resolvedParams = await searchParams;
   const page = Number(resolvedParams.page ?? "0") || 0;
   const admissionType = typeof resolvedParams.type === "string" ? resolvedParams.type : "IPD";
-  const { rows, count } = await getAdmissionSummary({ page, pageSize: PAGE_SIZE, admissionType: admissionType || undefined });
+  const [{ rows, count }, currentStatus, dailyCensus] = await Promise.all([
+    getAdmissionSummary({ page, pageSize: PAGE_SIZE, admissionType: admissionType || undefined }),
+    getIpdCurrentStatus(),
+    getIpdDailyCensus(),
+  ]);
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+
+  const wardCounts = WARD_CATEGORIES.reduce<Record<string, number>>((acc, w) => {
+    acc[w] = currentStatus.filter((p: any) => p.ward_category === w).length;
+    return acc;
+  }, {});
+
+  const doctorCounts = Object.entries(
+    currentStatus.reduce<Record<string, number>>((acc, p: any) => {
+      const name = p.doctor_name ?? "Unattributed";
+      acc[name] = (acc[name] ?? 0) + 1;
+      return acc;
+    }, {})
+  ).sort(([, a], [, b]) => b - a);
 
   const typeHref = (t: string) => `/admissions?type=${t}`;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-3 text-sm font-semibold text-slate-700">IPD Right Now</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="rounded-lg border border-slate-900 bg-slate-900 p-3 text-white">
+            <div className="text-xs uppercase text-slate-300">Total in IPD</div>
+            <div className="text-2xl font-semibold">{currentStatus.length}</div>
+          </div>
+          {WARD_CATEGORIES.map((w) => (
+            <div key={w} className="rounded-lg border border-slate-200 p-3">
+              <div className="text-xs uppercase text-slate-500">{w}</div>
+              <div className="text-2xl font-semibold">{wardCounts[w]}</div>
+            </div>
+          ))}
+        </div>
+
+        {doctorCounts.length > 0 && (
+          <div className="mt-4">
+            <div className="mb-2 text-xs uppercase text-slate-500">Patients in IPD by Doctor</div>
+            <div className="flex flex-wrap gap-2">
+              {doctorCounts.map(([doctor, n]) => (
+                <span key={doctor} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm">
+                  {doctor}: <span className="font-semibold">{n}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <IpdCensusChart data={dailyCensus} />
+      </section>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Admissions — Ward / Bed / Length of Stay</h1>

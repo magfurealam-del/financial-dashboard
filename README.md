@@ -18,7 +18,10 @@ Implemented so far:
 - Department performance rollup (CSV export, drill-down to filtered invoices)
 - Doctor revenue share rollup + OT/Surgery sub-category breakdown (CSV export, drill-down)
 - Patient revenue rollup (search, pagination, CSV export, drill-down to that patient's invoices)
-- Admissions page: ward/bed/length-of-stay for IPD, filterable IPD/Daycare/All (CSV export)
+- Admissions page: ward/bed/length-of-stay for IPD, filterable IPD/Daycare/All (CSV export). Top
+  panel shows live IPD census (total + by ward category: Female/Male/Single Cabin/Shared Cabin/VIP),
+  a dynamic per-doctor current-patient count (only doctors with patients currently admitted), and a
+  daily/monthly occupancy trend chart (`vw_finance_ipd_current_status`, `vw_finance_ipd_daily_census`)
 - Revenue by Marketing Source (CSV export): CRM/lead attribution joined in, with coverage %
 - Data Validation / QA page: 9 automated invariant checks against live data (CSV export)
 - Data Quality / Reconciliation page (grouped exception list, CSV export)
