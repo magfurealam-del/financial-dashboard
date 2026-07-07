@@ -222,6 +222,13 @@ export async function getReconciliationIssues() {
   return data ?? [];
 }
 
+export async function getValidationChecks() {
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase.from("vw_finance_validation_checks").select("*");
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function getDepartmentOptions() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("invoices").select("department").not("department", "is", null);

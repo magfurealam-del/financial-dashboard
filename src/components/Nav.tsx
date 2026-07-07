@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/doctors", label: "Doctor Shares" },
   { href: "/patients", label: "Patients" },
   { href: "/reconciliation", label: "Data Quality" },
+  { href: "/validation", label: "Validation" },
 ];
 
 export function Nav() {

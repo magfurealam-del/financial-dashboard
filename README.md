@@ -95,12 +95,26 @@ have `invoice_status = 'final'`, so this is a defensive filter for future data).
 Implemented in `src/lib/metrics.ts` and the SQL views above — do not recompute these differently
 elsewhere in the codebase.
 
-- **Gross Revenue** = sum of line-item gross amounts, excluding void/cancelled invoices
+- **Gross Revenue** = `invoices.total_bill` (item subtotal + service charge + VAT + urgent fee),
+  excluding void/cancelled invoices. (Corrected 2026-07-07 — previously used `item_total` alone,
+  which understated Gross whenever a service charge/VAT/urgent fee applied, breaking the
+  Gross − Discount − Refund = Net identity for ~22 invoices.)
 - **Discount** = invoice-level + line-item-level discounts
 - **Refund** = `invoices.total_refund`
-- **Net Revenue** = Gross − Discounts − Refunds
-- **Collected Revenue** = `invoices.total_collected`
-- **Outstanding Revenue** = Net Revenue − Collected Revenue
+- **Net Revenue** = `invoices.net_bill` (billed amount post-discount). Refunds are **not** further
+  subtracted here — see the note below on why.
+- **Collected Revenue** = `invoices.total_collected − invoices.total_refund` (net cash actually
+  retained). (Corrected 2026-07-07 — previously used raw `total_collected`, which overstated
+  collected revenue by the refunded amount on refunded invoices.)
+- **Outstanding Revenue** = `invoices.total_due` (already correctly clamped at 0 and nets refunds
+  against collections at the source — do not recompute as `Net − Collected` without the clamp, since
+  overpayments/advance deposits can make that go negative).
+
+  **Why refunds reduce Collected Revenue, not Net Revenue:** the data shows `net_bill` is always
+  `total_bill − discount_total`, and the pre-existing `total_due` field is always
+  `net_bill − (total_collected − total_refund)`. That means a refund is modeled as a **collections-side
+  event** (money paid back after being collected), not a retroactive reduction to what was billed.
+  Net Revenue represents what was invoiced; Collected Revenue represents what was actually kept.
 - **Doctor Share** = Σ `line.net_amount × line.doctor_share_pct / 100` for revenue-share-eligible lines
 - **Contribution Margin** = Net Revenue − Doctor Share
 - **Contribution Margin %** = Contribution Margin ÷ Net Revenue
@@ -114,6 +128,21 @@ elsewhere in the codebase.
 
 All dates are treated as **invoice date** (`invoices.invoice_date`) in **Asia/Dhaka**, and all
 currency is formatted as **BDT**. Default view is current month-to-date.
+
+## Data validation (`/validation`)
+
+An automated QA page backed by `vw_finance_validation_checks`, checking the invariants above hold
+against live data: invoice-total-matches-line-items, monthly/department rollup consistency,
+contribution margin formula correctness, void-invoice exclusion, and outstanding = net − collected
+(clamped). Re-run any time by re-querying the view — safe, read-only. As of 2026-07-07: 7 passing,
+2 warning (see below), 1 not-applicable (doctor-share-vs-monthly-invoice, schema gap #1).
+
+Two **warning**-level findings are flagged for finance review rather than auto-corrected, since
+guessing wrong here would corrupt otherwise-correct figures:
+- **27 invoices have a recorded discount that was not actually reflected in `net_bill`** (net_bill
+  equals the pre-discount total). Could be a parsing gap, or the discount was quoted but not applied
+  — needs a source-document check before deciding whether to correct `net_bill` or `discount_total`.
+- **The monthly rollup excludes ~75k BDT** from invoices with a null `invoice_date` (see below).
 
 ## Known schema gaps / assumptions (please validate with the finance team)
 
