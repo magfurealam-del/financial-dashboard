@@ -126,20 +126,32 @@ currency is formatted as **BDT**. Default view is current month-to-date.
    `admissions.total_refund` aggregate fields — there's no per-refund reason, approver, or date.
    `invoice_discounts` does have per-row detail (reason via `raw_discount_text`, `approved_by`) but
    refunds don't have an equivalent.
-3. **1,089 reconciliation issues found on first run** (see `/reconciliation`), dominated by line
-   items with no mapped `category_id` (`Unmapped` category in the invoice detail view) — i.e. the
-   department/service-category mapping is incomplete for many parsed line items.
+3. **Reconciliation issues: 1,180 found originally, 44 remain** (see `/reconciliation`) after fixing
+   doctor-share resolution (817 line items), invoice-doctor attribution (55 invoices), and line-item
+   category mapping (264 of 265 line items backfilled by name-pattern matching). The one remaining
+   category gap is "Duplex study of both lower limb (Vasels)" — no fitting category exists yet in
+   `service_categories` (only `PATHOLOGY` represents Diagnostics; vascular Duplex studies aren't
+   represented). The other 44 (invoice missing patient, negative revenue lines, paid-exceeds-invoice,
+   duplicate patient phone) are unrelated data-quality items, still open.
 4. **No payment method breakdown** beyond `invoice_payments.pay_mode`/`pay_type`, which are free
    text (not yet normalized against a lookup table).
 5. **No branch/location, marketing source, or cashier/user field on `invoices`.** Marketing
    attribution exists in a separate CRM schema (`crm_billing_links`, `lead_attribution`,
    `marketing_campaign_map`) that isn't joined into the finance views yet — a follow-up could link
    `crm_billing_links.invoice_id` in to attribute revenue to marketing source.
-6. **~75k BDT of net revenue sits on invoices with a null `invoice_date`** and is therefore excluded
-   from the daily/weekly/monthly trend views (though included in aggregate KPI totals when no date
-   filter narrows it out) — worth a data-entry cleanup pass.
+6. **~75k BDT of net revenue sits on invoices with a null `invoice_date`**, and this is intentional
+   for 18 of them (an explicit CFO data rule: historical carryover collections with no true service
+   date — see `is_date_unknown_carryover` flag on `vw_finance_invoice_summary`, shown as a badge on
+   the invoice list/detail pages rather than fabricated). These are excluded from the daily/weekly/
+   monthly trend views but included in aggregate KPI totals when no date filter narrows them out.
 7. All 859 invoices currently have `invoice_status = 'final'` — no void/cancelled invoices exist
    yet to verify the exclusion logic against real data.
+8. **Doctor revenue share required several corrections beyond the raw rule tables** — line items
+   weren't linked to `service_item_id`, 47 invoices had no `doctor_id` despite having
+   `consultant_name_raw`, and the OT/Surgery category rule (100%) was being applied uniformly to
+   sub-charges that are actually hospital-side (`Post-Operative Charge` / `Post-Operative Charge Per
+   Hour` — confirmed with finance, now 0%) versus doctor-side (`OT Team Charge`, `Daycare OT Bill` —
+   confirmed 100%). See `vw_finance_ot_breakdown` for the sub-category split.
 
 ## Tech stack
 
