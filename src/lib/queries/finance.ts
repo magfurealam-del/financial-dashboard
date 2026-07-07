@@ -103,6 +103,28 @@ export async function getInvoiceDetail(invoiceId: number) {
   return { invoice, lineItems: lineItems ?? [], payments: payments ?? [], discounts: discounts ?? [], admission };
 }
 
+/** Diagnostics (PATHOLOGY + ADVANCED DIAGNOSTICS categories) net/gross/discount/doctor-share per invoice, for carving Diagnostics out of whichever department the invoice was billed under. */
+async function getDiagnosticsLineTotalsByInvoice(invoiceIds: number[]) {
+  const result = new Map<number, { net: number; gross: number; discount: number; doctorShare: number }>();
+  if (invoiceIds.length === 0) return result;
+  const supabase = getSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("vw_finance_line_item_summary")
+    .select("invoice_id,net_amount,gross_amount,discount_amount,doctor_share_amount")
+    .eq("category_group", "Diagnostics")
+    .in("invoice_id", invoiceIds);
+  if (error) throw error;
+  for (const r of (data ?? []) as any[]) {
+    const entry = result.get(r.invoice_id) ?? { net: 0, gross: 0, discount: 0, doctorShare: 0 };
+    entry.net += Number(r.net_amount) || 0;
+    entry.gross += Number(r.gross_amount) || 0;
+    entry.discount += Number(r.discount_amount) || 0;
+    entry.doctorShare += Number(r.doctor_share_amount) || 0;
+    result.set(r.invoice_id, entry);
+  }
+  return result;
+}
+
 export async function getExecutiveSummary(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   let query = supabase.from("vw_finance_invoice_summary").select(
@@ -127,10 +149,18 @@ export async function getExecutiveSummary(filters: FinanceFilters) {
   const invoiceCount = new Set(rows.map((r: any) => r.invoice_id)).size;
   const patientCount = new Set(rows.filter((r: any) => r.patient_id).map((r: any) => r.patient_id)).size;
 
+  const diagByInvoice = await getDiagnosticsLineTotalsByInvoice(rows.map((r: any) => r.invoice_id));
   const byDepartment: Record<string, number> = {};
   for (const r of rows as any[]) {
     const dept = r.department ?? "Unmapped";
-    byDepartment[dept] = (byDepartment[dept] ?? 0) + (Number(r.net_amount) || 0);
+    const diagNet = diagByInvoice.get(r.invoice_id)?.net ?? 0;
+    const netAmount = Number(r.net_amount) || 0;
+    if (diagNet > 0) {
+      byDepartment["Diagnostics"] = (byDepartment["Diagnostics"] ?? 0) + diagNet;
+      byDepartment[dept] = (byDepartment[dept] ?? 0) + (netAmount - diagNet);
+    } else {
+      byDepartment[dept] = (byDepartment[dept] ?? 0) + netAmount;
+    }
   }
 
   return {
@@ -216,31 +246,43 @@ export async function getDepartmentSummaryFiltered(filters: FinanceFilters) {
     }
   >();
 
-  for (const r of (data ?? []) as any[]) {
-    const key = r.department as string;
+  const rows = (data ?? []) as any[];
+  const diagByInvoice = await getDiagnosticsLineTotalsByInvoice(rows.map((r) => r.invoice_id));
+
+  function addTo(key: string, invoiceId: number, patientId: number | null, gross: number, net: number, collected: number, discount: number, refund: number, outstanding: number, doctorShare: number) {
     if (!byDept.has(key)) {
-      byDept.set(key, {
-        invoiceIds: new Set(),
-        patientIds: new Set(),
-        gross: 0,
-        net: 0,
-        collected: 0,
-        discount: 0,
-        refund: 0,
-        outstanding: 0,
-        doctorShare: 0,
-      });
+      byDept.set(key, { invoiceIds: new Set(), patientIds: new Set(), gross: 0, net: 0, collected: 0, discount: 0, refund: 0, outstanding: 0, doctorShare: 0 });
     }
     const entry = byDept.get(key)!;
-    entry.invoiceIds.add(r.invoice_id);
-    if (r.patient_id) entry.patientIds.add(r.patient_id);
-    entry.gross += Number(r.gross_amount) || 0;
-    entry.net += Number(r.net_amount) || 0;
-    entry.collected += Number(r.collected_amount) || 0;
-    entry.discount += Number(r.discount_amount) || 0;
-    entry.refund += Number(r.refund_amount) || 0;
-    entry.outstanding += Number(r.outstanding_amount) || 0;
-    entry.doctorShare += Number(r.doctor_share_total) || 0;
+    entry.invoiceIds.add(invoiceId);
+    if (patientId) entry.patientIds.add(patientId);
+    entry.gross += gross;
+    entry.net += net;
+    entry.collected += collected;
+    entry.discount += discount;
+    entry.refund += refund;
+    entry.outstanding += outstanding;
+    entry.doctorShare += doctorShare;
+  }
+
+  for (const r of rows) {
+    const dept = r.department as string;
+    const gross = Number(r.gross_amount) || 0;
+    const net = Number(r.net_amount) || 0;
+    const collected = Number(r.collected_amount) || 0;
+    const discount = Number(r.discount_amount) || 0;
+    const refund = Number(r.refund_amount) || 0;
+    const outstanding = Number(r.outstanding_amount) || 0;
+    const doctorShare = Number(r.doctor_share_total) || 0;
+    const diag = diagByInvoice.get(r.invoice_id);
+
+    if (diag && diag.net > 0) {
+      const fraction = net > 0 ? diag.net / net : 0;
+      addTo("Diagnostics", r.invoice_id, r.patient_id, diag.gross, diag.net, collected * fraction, diag.discount, refund * fraction, outstanding * fraction, diag.doctorShare);
+      addTo(dept, r.invoice_id, r.patient_id, gross - diag.gross, net - diag.net, collected * (1 - fraction), discount - diag.discount, refund * (1 - fraction), outstanding * (1 - fraction), doctorShare - diag.doctorShare);
+    } else {
+      addTo(dept, r.invoice_id, r.patient_id, gross, net, collected, discount, refund, outstanding, doctorShare);
+    }
   }
 
   return Array.from(byDept.entries())

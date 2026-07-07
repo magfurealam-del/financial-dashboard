@@ -15,7 +15,14 @@ Implemented so far:
 - Invoice table (search, sort by date, pagination, CSV export) + invoice detail drill-down
   (line items, payments, discounts, doctor share, contribution margin, admission/ward/bed/LOS when
   applicable)
-- Department performance rollup (CSV export, drill-down to filtered invoices)
+- Department performance rollup — filter-bar-aware with an explicit **Update Table** button (CSV
+  export, drill-down to filtered invoices). Includes a **Diagnostics** row (PATHOLOGY + ADVANCED
+  DIAGNOSTICS categories) carved out of whichever department the invoice was billed under (OPD/IPD/
+  etc), using exact per-line-item net/gross/discount/doctor-share splits — the department list still
+  sums to exactly total net revenue (verified via `/validation`). Same carve-out applied to the
+  Executive Summary's department breakdown. Note: this means `Lab/Pathology` (the raw
+  `invoices.department` value) now shows only its small residual after pathology line items move to
+  Diagnostics — expected, not a bug.
 - Doctor revenue share rollup + OT/Surgery sub-category breakdown (CSV export, drill-down)
 - Patient revenue rollup (search, pagination, CSV export, drill-down to that patient's invoices)
 - Admissions page: ward/bed/length-of-stay for IPD, filterable IPD/Daycare/All (CSV export). Top
