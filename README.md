@@ -126,13 +126,14 @@ currency is formatted as **BDT**. Default view is current month-to-date.
    `admissions.total_refund` aggregate fields — there's no per-refund reason, approver, or date.
    `invoice_discounts` does have per-row detail (reason via `raw_discount_text`, `approved_by`) but
    refunds don't have an equivalent.
-3. **Reconciliation issues: 1,180 found originally, 44 remain** (see `/reconciliation`) after fixing
+3. **Reconciliation issues: 1,180 found originally, 43 remain** (see `/reconciliation`) after fixing
    doctor-share resolution (817 line items), invoice-doctor attribution (55 invoices), and line-item
-   category mapping (264 of 265 line items backfilled by name-pattern matching). The one remaining
-   category gap is "Duplex study of both lower limb (Vasels)" — no fitting category exists yet in
-   `service_categories` (only `PATHOLOGY` represents Diagnostics; vascular Duplex studies aren't
-   represented). The other 44 (invoice missing patient, negative revenue lines, paid-exceeds-invoice,
-   duplicate patient phone) are unrelated data-quality items, still open.
+   category mapping (all 265 line items). Category mapping included adding a new **ADVANCED
+   DIAGNOSTICS** category (`service_categories.id = 24`) for TM Flow, Neurotouch, Mimosa,
+   Moleculight, Wound Screening Package, Fibroscan, and all Duplex Study variants — these were
+   previously either uncategorized or inconsistently split across `PATHOLOGY`/`OPD SERVICES`
+   depending on the invoice. The remaining 43 (invoice missing patient, negative revenue lines,
+   paid-exceeds-invoice, duplicate patient phone) are unrelated data-quality items, still open.
 4. **No payment method breakdown** beyond `invoice_payments.pay_mode`/`pay_type`, which are free
    text (not yet normalized against a lookup table).
 5. **No branch/location, marketing source, or cashier/user field on `invoices`.** Marketing
