@@ -10,6 +10,18 @@ const METHOD_LABELS: Record<string, string> = {
   phone_e164_invoice_arbiter: "Direct match: phone + invoice arbitration",
 };
 
+const METHOD_DESCRIPTIONS: Record<string, string> = {
+  unattributed: "This patient has no matching CRM lead or billing-link record at all — no marketing source can be determined.",
+  patient_lead_attribution:
+    "No direct link exists between this invoice and a CRM record, so it was matched using the patient's most recent lead_attribution row (their latest tracked marketing touchpoint) instead of this specific invoice.",
+  phone_e164_exact:
+    "Matched directly: this invoice's phone number (normalized to E.164 format) exactly matches the phone number on a crm_billing_links record.",
+  hn_raw_match:
+    "Matched directly: this invoice's raw hospital number (HN) matches the HN recorded in the crm_billing_links record — used when phone numbers didn't match or weren't available.",
+  phone_e164_invoice_arbiter:
+    "Matched by phone number, but more than one candidate invoice shared that phone number, so an arbitration step used invoice number/date proximity to pick the right one.",
+};
+
 export default async function MarketingPage() {
   const rows = await getMarketingSourceSummary();
 
@@ -81,15 +93,20 @@ export default async function MarketingPage() {
                 const sumB = b.reduce((s: number, r: any) => s + Number(r.net_revenue || 0), 0);
                 return sumB - sumA;
               })
-              .map(([source, entries]) =>
-                entries.map((r: any, idx: number) => (
-                  <tr key={`${source}-${r.attribution_method}`} className={cn("border-t border-slate-100", source === "unattributed" && "bg-slate-50/50")}>
+              .flatMap(([source, entries]) => {
+                const methodRows = entries.map((r: any, idx: number) => (
+                  <tr key={`${source}-${r.attribution_method}`} className={cn("border-t border-slate-100 align-top", source === "unattributed" && "bg-slate-50/50")}>
                     {idx === 0 && (
-                      <td className="px-3 py-2 font-medium capitalize" rowSpan={entries.length}>
+                      <td className="px-3 py-2 font-medium capitalize" rowSpan={entries.length + (entries.length > 1 ? 1 : 0)}>
                         {source.replace(/_/g, " ")}
                       </td>
                     )}
-                    <td className="px-3 py-2 text-slate-600">{METHOD_LABELS[r.attribution_method] ?? r.attribution_method}</td>
+                    <td className="px-3 py-2 text-slate-600">
+                      <div>{METHOD_LABELS[r.attribution_method] ?? r.attribution_method}</div>
+                      <div className="mt-0.5 text-xs font-normal text-slate-400">
+                        {METHOD_DESCRIPTIONS[r.attribution_method] ?? "No description available."}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right">{formatNumber(r.invoice_count)}</td>
                     <td className="px-3 py-2 text-right">{formatNumber(r.patient_count)}</td>
                     <td className="px-3 py-2 text-right">{formatBDT(r.gross_revenue)}</td>
@@ -99,8 +116,34 @@ export default async function MarketingPage() {
                     <td className="px-3 py-2 text-right">{formatBDT(r.contribution_margin)}</td>
                     <td className="px-3 py-2 text-right">{formatBDT(r.avg_invoice_value)}</td>
                   </tr>
-                ))
-              )}
+                ));
+
+                if (entries.length <= 1) return methodRows;
+
+                const totalInvoiceCount = entries.reduce((s: number, r: any) => s + Number(r.invoice_count || 0), 0);
+                const totalPatientCount = entries.reduce((s: number, r: any) => s + Number(r.patient_count || 0), 0);
+                const totalGross = entries.reduce((s: number, r: any) => s + Number(r.gross_revenue || 0), 0);
+                const totalNetForSource = entries.reduce((s: number, r: any) => s + Number(r.net_revenue || 0), 0);
+                const totalCollected = entries.reduce((s: number, r: any) => s + Number(r.collected_revenue || 0), 0);
+                const totalDoctorShare = entries.reduce((s: number, r: any) => s + Number(r.doctor_share_total || 0), 0);
+                const totalContribution = entries.reduce((s: number, r: any) => s + Number(r.contribution_margin || 0), 0);
+
+                const totalRow = (
+                  <tr key={`${source}-total`} className="border-t border-slate-200 bg-slate-50 font-semibold">
+                    <td className="px-3 py-2 text-slate-700">Total ({source.replace(/_/g, " ")}, all methods)</td>
+                    <td className="px-3 py-2 text-right">{formatNumber(totalInvoiceCount)}</td>
+                    <td className="px-3 py-2 text-right">{formatNumber(totalPatientCount)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalGross)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalNetForSource)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalCollected)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalDoctorShare)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalContribution)}</td>
+                    <td className="px-3 py-2 text-right">{formatBDT(totalInvoiceCount ? totalNetForSource / totalInvoiceCount : null)}</td>
+                  </tr>
+                );
+
+                return [...methodRows, totalRow];
+              })}
             {rows.length === 0 && (
               <tr><td colSpan={10} className="px-3 py-6 text-center text-slate-400">No marketing attribution data available.</td></tr>
             )}
