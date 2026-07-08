@@ -59,8 +59,12 @@ export async function getInvoiceSummaryRows(
   const sortBy = opts.sortBy ?? "invoice_date";
   const sortDir = opts.sortDir ?? "desc";
 
+  // When filtering by department (including the synthetic "Diagnostics" bucket), use the
+  // department-split view so displayed/summed amounts reconcile exactly with the Departments tab
+  // instead of showing whole-invoice totals for invoices that also have diagnostics line items.
+  const sourceView = filters.department ? "vw_finance_invoice_department_split" : "vw_finance_invoice_summary";
   let query = supabase
-    .from("vw_finance_invoice_summary")
+    .from(sourceView)
     .select("*", { count: "exact" });
   query = applyInvoiceFilters(query, filters);
   if (opts.search) {
@@ -399,7 +403,10 @@ export async function getDepartmentOptions() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("invoices").select("department").not("department", "is", null);
   if (error) throw error;
-  return Array.from(new Set((data ?? []).map((r: any) => r.department))).sort();
+  // "Diagnostics" is a synthetic bucket carved out of whichever department a diagnostics line item
+  // was billed under (see vw_finance_invoice_department_split) - not a raw invoices.department value.
+  const raw = Array.from(new Set((data ?? []).map((r: any) => r.department))).sort();
+  return ["Diagnostics", ...raw];
 }
 
 export async function getDoctorOptions() {

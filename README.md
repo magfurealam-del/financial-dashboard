@@ -14,7 +14,11 @@ Implemented so far:
   date range
 - Invoice table (search, sort by date, pagination, CSV export) + invoice detail drill-down
   (line items, payments, discounts, doctor share, contribution margin, admission/ward/bed/LOS when
-  applicable)
+  applicable). "Diagnostics" is selectable in the department filter dropdown alongside the raw
+  department values; when any department filter is active, invoice amounts shown/exported are the
+  department-attributed split (`vw_finance_invoice_department_split`), not whole-invoice totals — so
+  summing the Net column for a given department filter always matches that department's row on the
+  Departments tab exactly (verified: Diagnostics = 337 invoices / BDT 376,680, matching precisely).
 - Department performance rollup — filter-bar-aware with an explicit **Update Table** button (CSV
   export, drill-down to filtered invoices). Includes a **Diagnostics** row (PATHOLOGY + ADVANCED
   DIAGNOSTICS categories) carved out of whichever department the invoice was billed under (OPD/IPD/
