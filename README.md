@@ -18,15 +18,20 @@ Implemented so far:
   department values; when any department filter is active, invoice amounts shown/exported are the
   department-attributed split (`vw_finance_invoice_department_split`), not whole-invoice totals — so
   summing the Net column for a given department filter always matches that department's row on the
-  Departments tab exactly (verified: Diagnostics = 337 invoices / BDT 376,680, matching precisely).
+  Departments tab exactly (verified: Diagnostics = 27 invoices / BDT 85,600, matching precisely).
 - Department performance rollup — filter-bar-aware with an explicit **Update Table** button (CSV
-  export, drill-down to filtered invoices). Includes a **Diagnostics** row (PATHOLOGY + ADVANCED
-  DIAGNOSTICS categories) carved out of whichever department the invoice was billed under (OPD/IPD/
-  etc), using exact per-line-item net/gross/discount/doctor-share splits — the department list still
-  sums to exactly total net revenue (verified via `/validation`). Same carve-out applied to the
-  Executive Summary's department breakdown. Note: this means `Lab/Pathology` (the raw
-  `invoices.department` value) now shows only its small residual after pathology line items move to
-  Diagnostics — expected, not a bug.
+  export, drill-down to filtered invoices). Includes a **Diagnostics** row (ADVANCED DIAGNOSTICS
+  category only — Duplex Study, Neurotouch, TM Flow, Mimosa, Moleculight, Fibroscan, diabetic foot
+  screening packages) carved out of whichever department the invoice was billed under (OPD/IPD/etc),
+  using exact per-line-item net/gross/discount/doctor-share splits — the department list still sums
+  to exactly total net revenue (verified via `/validation`). **PATHOLOGY (lab culture tests like
+  "PUS for C/S", "Wound Swab for C/S") is a separate category (`category_group = 'Pathology'`) and
+  is intentionally *not* carved into Diagnostics** — it stays attributed to its original department
+  (2026-07-08 correction; it was wrongly included earlier because both categories shared
+  `category_group = 'Diagnostics'`). Same carve-out applied to the Executive Summary's department
+  breakdown. Therapy-related items (VACUARC, HBOT, Electric Rebuilder, PEMF, VAC Therapy) are
+  consolidated under `THERAPEUTICS`/`HBOT` categories — previously some VACUARC/HBOT lines were
+  miscategorized under `OPD SERVICES`, now fixed.
 - Doctor revenue share rollup + OT/Surgery sub-category breakdown (CSV export, drill-down)
 - Patient revenue rollup (search, pagination, CSV export, drill-down to that patient's invoices)
 - Admissions page: ward/bed/length-of-stay for IPD, filterable IPD/Daycare/All (CSV export). Top
