@@ -1,5 +1,6 @@
 import { getValidationChecks } from "@/lib/queries/finance";
 import { cn } from "@/lib/cn";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const CHECK_LABELS: Record<string, string> = {
   invoice_total_matches_line_items: "Invoice total matches sum of line items",
@@ -37,7 +38,10 @@ export default async function ValidationPage() {
             Re-run any time by re-querying <code>vw_finance_validation_checks</code>.
           </p>
         </div>
-        <a href="/api/export/validation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        <div className="flex items-center gap-2">
+          <RefreshTableButton />
+          <a href="/api/export/validation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        </div>
       </div>
 
       <div className="flex gap-3">

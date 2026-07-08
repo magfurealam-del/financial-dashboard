@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getAdmissionSummary, getIpdCurrentStatus, getIpdDailyCensus } from "@/lib/queries/finance";
+import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatDateTimeBD, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { IpdCensusChart } from "@/components/IpdCensusChart";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const PAGE_SIZE = 25;
 const WARD_CATEGORIES = ["Female Ward", "Male Ward", "Single Cabin", "Shared Cabin", "VIP Ward"] as const;
@@ -13,14 +15,16 @@ export default async function AdmissionsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = await searchParams;
+  const filters = parseFiltersFromSearchParams(resolvedParams);
   const page = Number(resolvedParams.page ?? "0") || 0;
   const admissionType = typeof resolvedParams.type === "string" ? resolvedParams.type : "IPD";
   const [{ rows, count }, currentStatus, dailyCensus] = await Promise.all([
-    getAdmissionSummary({ page, pageSize: PAGE_SIZE, admissionType: admissionType || undefined }),
+    getAdmissionSummary({ page, pageSize: PAGE_SIZE, admissionType: admissionType || undefined, filters }),
     getIpdCurrentStatus(),
     getIpdDailyCensus(),
   ]);
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const qs = new URLSearchParams(resolvedParams as Record<string, string>);
 
   const wardCounts = WARD_CATEGORIES.reduce<Record<string, number>>((acc, w) => {
     acc[w] = currentStatus.filter((p: any) => p.ward_category === w).length;
@@ -35,7 +39,23 @@ export default async function AdmissionsPage({
     }, {})
   ).sort(([, a], [, b]) => b - a);
 
-  const typeHref = (t: string) => `/admissions?type=${t}`;
+  const typeHref = (t: string) => {
+    const params = new URLSearchParams(qs);
+    params.set("type", t);
+    params.delete("page");
+    return `/admissions?${params.toString()}`;
+  };
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams(qs);
+    params.set("type", admissionType);
+    params.set("page", String(p));
+    return `/admissions?${params.toString()}`;
+  };
+  const exportHref = (() => {
+    const params = new URLSearchParams(qs);
+    if (admissionType) params.set("type", admissionType);
+    return `/api/export/admissions?${params.toString()}`;
+  })();
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,9 +96,10 @@ export default async function AdmissionsPage({
         <div>
           <h1 className="text-lg font-semibold">Admissions — Ward / Bed / Length of Stay</h1>
           <p className="text-sm text-slate-500">
-            {count} admission{count === 1 ? "" : "s"}. <code>Daycare</code> covers all non-inpatient case types
-            (OPD/Consultancy/Pharmacy/Therapy/Lab); <code>IPD</code> is true inpatient admissions with ward/bed/length
-            of stay.
+            {count} admission{count === 1 ? "" : "s"} admitted between {filters.dateFrom} and {filters.dateTo}.{" "}
+            <code>Daycare</code> covers all non-inpatient case types (OPD/Consultancy/Pharmacy/Therapy/Lab);{" "}
+            <code>IPD</code> is true inpatient admissions with ward/bed/length of stay. Adjust the filter bar above,
+            then click Update Table.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -96,7 +117,8 @@ export default async function AdmissionsPage({
               </Link>
             ))}
           </div>
-          <a href={`/api/export/admissions${admissionType ? `?type=${admissionType}` : ""}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+          <RefreshTableButton />
+          <a href={exportHref} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
         </div>
       </div>
 
@@ -151,8 +173,8 @@ export default async function AdmissionsPage({
       <div className="flex items-center justify-between text-sm">
         <span className="text-slate-500">Page {page + 1} of {totalPages} ({formatNumber(count)} total)</span>
         <div className="flex gap-2">
-          <Link href={`/admissions?type=${admissionType}&page=${Math.max(0, page - 1)}`} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Previous</Link>
-          <Link href={`/admissions?type=${admissionType}&page=${Math.min(totalPages - 1, page + 1)}`} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Next</Link>
+          <Link href={pageHref(Math.max(0, page - 1))} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Previous</Link>
+          <Link href={pageHref(Math.min(totalPages - 1, page + 1))} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Next</Link>
         </div>
       </div>
     </div>

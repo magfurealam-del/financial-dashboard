@@ -42,7 +42,11 @@ Implemented so far:
 - Data Validation / QA page: 9 automated invariant checks against live data (CSV export)
 - Data Quality / Reconciliation page (grouped exception list, CSV export)
 - Persistent top filter bar (date range, department, doctor, patient type, payment status) shared
-  across all pages via URL query params
+  across all pages via URL query params. **Every tab is now filter-reactive with an explicit Update
+  Table button** (2026-07-08 fix) — Doctor Shares, Patients, Admissions, and Marketing Source
+  previously showed static all-time data regardless of the filter bar; they now respect date range/
+  department/doctor/patient type/payment status like every other page, with CSV exports updated to
+  match.
 - Reusable Supabase query layer (`src/lib/queries/finance.ts`) and metric utilities
   (`src/lib/metrics.ts`), BDT + Asia/Dhaka formatting (`src/lib/format.ts`)
 - `refresh_finance_derived_data()` Postgres function (doctor-share resolution, category mapping,

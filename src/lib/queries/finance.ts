@@ -346,6 +346,156 @@ export async function getPatientSummary(opts: { page?: number; pageSize?: number
   return { rows: data ?? [], count: count ?? 0 };
 }
 
+export async function getPatientSummaryFiltered(
+  filters: FinanceFilters,
+  opts: { page?: number; pageSize?: number; search?: string } = {}
+) {
+  const supabase = getSupabaseServerClient();
+  const page = opts.page ?? 0;
+  const pageSize = opts.pageSize ?? 25;
+
+  let query = supabase
+    .from("vw_finance_invoice_summary")
+    .select("patient_id,patient_name,patient_phone,invoice_id,invoice_date,gross_amount,net_amount,collected_amount,outstanding_amount,doctor_share_total")
+    .not("patient_id", "is", null);
+  query = applyInvoiceFilters(query, filters);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const byPatient = new Map<
+    number,
+    { name: string | null; phone: string | null; invoiceIds: Set<number>; firstVisit: string | null; lastVisit: string | null; gross: number; net: number; collected: number; outstanding: number; doctorShare: number }
+  >();
+  for (const r of (data ?? []) as any[]) {
+    if (!byPatient.has(r.patient_id)) {
+      byPatient.set(r.patient_id, { name: r.patient_name, phone: r.patient_phone, invoiceIds: new Set(), firstVisit: null, lastVisit: null, gross: 0, net: 0, collected: 0, outstanding: 0, doctorShare: 0 });
+    }
+    const entry = byPatient.get(r.patient_id)!;
+    entry.invoiceIds.add(r.invoice_id);
+    if (r.invoice_date) {
+      if (!entry.firstVisit || r.invoice_date < entry.firstVisit) entry.firstVisit = r.invoice_date;
+      if (!entry.lastVisit || r.invoice_date > entry.lastVisit) entry.lastVisit = r.invoice_date;
+    }
+    entry.gross += Number(r.gross_amount) || 0;
+    entry.net += Number(r.net_amount) || 0;
+    entry.collected += Number(r.collected_amount) || 0;
+    entry.outstanding += Number(r.outstanding_amount) || 0;
+    entry.doctorShare += Number(r.doctor_share_total) || 0;
+  }
+
+  let allRows = Array.from(byPatient.entries()).map(([patientId, v]) => ({
+    patient_id: patientId,
+    patient_name: v.name,
+    patient_phone: v.phone,
+    first_visit_date: v.firstVisit,
+    last_visit_date: v.lastVisit,
+    invoice_count: v.invoiceIds.size,
+    gross_revenue: v.gross,
+    net_revenue: v.net,
+    collected_revenue: v.collected,
+    outstanding_revenue: v.outstanding,
+    doctor_share_total: v.doctorShare,
+    contribution_margin: v.net - v.doctorShare,
+    is_repeat_patient: v.invoiceIds.size > 1,
+  }));
+
+  if (opts.search) {
+    const q = opts.search.toLowerCase();
+    allRows = allRows.filter((r) => r.patient_name?.toLowerCase().includes(q) || r.patient_phone?.toLowerCase().includes(q));
+  }
+
+  allRows.sort((a, b) => b.net_revenue - a.net_revenue);
+  const count = allRows.length;
+  const rows = allRows.slice(page * pageSize, page * pageSize + pageSize);
+  return { rows, count };
+}
+
+export async function getDoctorShareSummaryFiltered(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("vw_finance_invoice_summary")
+    .select("doctor_id,doctor_name,doctor_specialty,invoice_id,gross_amount,net_amount,doctor_share_total")
+    .not("doctor_id", "is", null);
+  query = applyInvoiceFilters(query, filters);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const byDoctor = new Map<
+    number,
+    { doctorName: string; specialty: string | null; invoiceIds: Set<number>; gross: number; net: number; doctorShare: number }
+  >();
+  for (const r of (data ?? []) as any[]) {
+    if (!byDoctor.has(r.doctor_id)) {
+      byDoctor.set(r.doctor_id, { doctorName: r.doctor_name, specialty: r.doctor_specialty, invoiceIds: new Set(), gross: 0, net: 0, doctorShare: 0 });
+    }
+    const entry = byDoctor.get(r.doctor_id)!;
+    entry.invoiceIds.add(r.invoice_id);
+    entry.gross += Number(r.gross_amount) || 0;
+    entry.net += Number(r.net_amount) || 0;
+    entry.doctorShare += Number(r.doctor_share_total) || 0;
+  }
+
+  return Array.from(byDoctor.entries())
+    .map(([doctorId, v]) => {
+      const contributionAfterShare = v.net - v.doctorShare;
+      return {
+        doctor_id: doctorId,
+        doctor_name: v.doctorName,
+        doctor_specialty: v.specialty,
+        invoice_count: v.invoiceIds.size,
+        gross_revenue_attributed: v.gross,
+        net_revenue_attributed: v.net,
+        doctor_share_amount: v.doctorShare,
+        contribution_after_share: contributionAfterShare,
+        contribution_margin_pct: v.net ? (contributionAfterShare / v.net) * 100 : null,
+      };
+    })
+    .sort((a, b) => b.net_revenue_attributed - a.net_revenue_attributed);
+}
+
+export async function getOtBreakdownFiltered(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("vw_finance_line_item_summary")
+    .select("invoice_id,invoice_date,department,patient_type,payment_status,doctor_id,doctor_name,ot_subcategory,net_amount,doctor_share_amount")
+    .not("ot_subcategory", "is", null);
+  query = query.gte("invoice_date", filters.dateFrom).lte("invoice_date", filters.dateTo);
+  if (filters.department) query = query.eq("department", filters.department);
+  if (filters.doctorId) query = query.eq("doctor_id", filters.doctorId);
+  if (filters.patientType) query = query.eq("patient_type", filters.patientType);
+  if (filters.paymentStatus) query = query.eq("payment_status", filters.paymentStatus);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const byKey = new Map<
+    string,
+    { doctorId: number | null; doctorName: string; otSubcategory: string; invoiceIds: Set<number>; lineItemCount: number; net: number; doctorShare: number }
+  >();
+  for (const r of (data ?? []) as any[]) {
+    const key = `${r.doctor_id ?? "none"}::${r.ot_subcategory}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, { doctorId: r.doctor_id, doctorName: r.doctor_name ?? "Unattributed", otSubcategory: r.ot_subcategory, invoiceIds: new Set(), lineItemCount: 0, net: 0, doctorShare: 0 });
+    }
+    const entry = byKey.get(key)!;
+    entry.invoiceIds.add(r.invoice_id);
+    entry.lineItemCount += 1;
+    entry.net += Number(r.net_amount) || 0;
+    entry.doctorShare += Number(r.doctor_share_amount) || 0;
+  }
+
+  return Array.from(byKey.values())
+    .map((v) => ({
+      doctor_id: v.doctorId,
+      doctor_name: v.doctorName,
+      ot_subcategory: v.otSubcategory,
+      invoice_count: v.invoiceIds.size,
+      line_item_count: v.lineItemCount,
+      net_revenue: v.net,
+      doctor_share_total: v.doctorShare,
+    }))
+    .sort((a, b) => b.net_revenue - a.net_revenue);
+}
+
 export async function getReconciliationIssues() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("vw_finance_reconciliation_issues").select("*").order("issue_type");
@@ -377,12 +527,18 @@ export async function getIpdDailyCensus() {
   return data ?? [];
 }
 
-export async function getAdmissionSummary(opts: { page?: number; pageSize?: number; admissionType?: string } = {}) {
+export async function getAdmissionSummary(
+  opts: { page?: number; pageSize?: number; admissionType?: string; filters?: FinanceFilters } = {}
+) {
   const supabase = getSupabaseServerClient();
   const page = opts.page ?? 0;
   const pageSize = opts.pageSize ?? 25;
   let query = supabase.from("vw_finance_admission_summary").select("*", { count: "exact" });
   if (opts.admissionType) query = query.eq("admission_type", opts.admissionType);
+  if (opts.filters) {
+    query = query.gte("admitted_on", opts.filters.dateFrom).lte("admitted_on", `${opts.filters.dateTo}T23:59:59`);
+    if (opts.filters.doctorId) query = query.eq("doctor_id", opts.filters.doctorId);
+  }
   query = query.order("admitted_on", { ascending: false, nullsFirst: false }).range(page * pageSize, page * pageSize + pageSize - 1);
   const { data, error, count } = await query;
   if (error) throw error;
@@ -397,6 +553,62 @@ export async function getMarketingSourceSummary() {
     .order("net_revenue", { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+
+  let invoiceQuery = supabase
+    .from("vw_finance_invoice_summary")
+    .select("invoice_id,department,doctor_id,patient_type,payment_status,patient_id,gross_amount,net_amount,collected_amount,doctor_share_total");
+  invoiceQuery = applyInvoiceFilters(invoiceQuery, filters);
+  const [{ data: invoiceRows, error: invErr }, { data: attribRows, error: attribErr }] = await Promise.all([
+    invoiceQuery,
+    supabase.from("vw_finance_invoice_marketing").select("invoice_id,source_category,attribution_method"),
+  ]);
+  if (invErr) throw invErr;
+  if (attribErr) throw attribErr;
+
+  const invoiceById = new Map((invoiceRows ?? []).map((r: any) => [r.invoice_id, r]));
+  const byKey = new Map<
+    string,
+    { source: string; method: string; invoiceIds: Set<number>; patientIds: Set<number>; gross: number; net: number; collected: number; doctorShare: number }
+  >();
+
+  for (const r of (attribRows ?? []) as any[]) {
+    const inv = invoiceById.get(r.invoice_id);
+    if (!inv) continue; // invoice didn't match the current filters (date range/department/doctor/etc.)
+
+    const key = `${r.source_category}::${r.attribution_method}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, { source: r.source_category, method: r.attribution_method, invoiceIds: new Set(), patientIds: new Set(), gross: 0, net: 0, collected: 0, doctorShare: 0 });
+    }
+    const entry = byKey.get(key)!;
+    entry.invoiceIds.add(inv.invoice_id);
+    if (inv.patient_id) entry.patientIds.add(inv.patient_id);
+    entry.gross += Number(inv.gross_amount) || 0;
+    entry.net += Number(inv.net_amount) || 0;
+    entry.collected += Number(inv.collected_amount) || 0;
+    entry.doctorShare += Number(inv.doctor_share_total) || 0;
+  }
+
+  return Array.from(byKey.values())
+    .map((v) => {
+      const invoiceCount = v.invoiceIds.size;
+      return {
+        source_category: v.source,
+        attribution_method: v.method,
+        invoice_count: invoiceCount,
+        patient_count: v.patientIds.size,
+        gross_revenue: v.gross,
+        net_revenue: v.net,
+        collected_revenue: v.collected,
+        doctor_share_total: v.doctorShare,
+        contribution_margin: v.net - v.doctorShare,
+        avg_invoice_value: invoiceCount ? v.net / invoiceCount : null,
+      };
+    })
+    .sort((a, b) => b.net_revenue - a.net_revenue);
 }
 
 export async function getDepartmentOptions() {

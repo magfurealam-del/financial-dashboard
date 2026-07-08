@@ -3,6 +3,7 @@ import { getExecutiveSummary } from "@/lib/queries/finance";
 import { KpiCard } from "@/components/KpiCard";
 import { formatBDT, formatNumber, formatPercent } from "@/lib/format";
 import { contributionMargin, contributionMarginPct, avgInvoiceValue, avgRevenuePerPatient, periodOverPeriodChange } from "@/lib/metrics";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 export default async function ExecutiveSummaryPage({
   searchParams,
@@ -28,11 +29,15 @@ export default async function ExecutiveSummaryPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold">Executive Summary</h1>
-        <p className="text-sm text-slate-500">
-          {filters.dateFrom} to {filters.dateTo} · figures in BDT · Asia/Dhaka
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-semibold">Executive Summary</h1>
+          <p className="text-sm text-slate-500">
+            {filters.dateFrom} to {filters.dateTo} · figures in BDT · Asia/Dhaka. Adjust the filter bar above, then
+            click Update Table.
+          </p>
+        </div>
+        <RefreshTableButton />
       </div>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">

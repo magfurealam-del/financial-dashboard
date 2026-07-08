@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { getPatientSummary } from "@/lib/queries/finance";
-import { formatBDT, formatDateBD, formatNumber, todayBD } from "@/lib/format";
+import { getPatientSummaryFiltered } from "@/lib/queries/finance";
+import { parseFiltersFromSearchParams } from "@/lib/filters";
+import { formatBDT, formatDateBD, formatNumber } from "@/lib/format";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const PAGE_SIZE = 25;
-// This page shows all-time totals, so drill-down links use a wide date range
-// rather than whatever the shared filter bar currently has selected.
-const ALL_TIME_FROM = "2000-01-01";
 
 export default async function PatientsPage({
   searchParams,
@@ -13,24 +12,40 @@ export default async function PatientsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const resolvedParams = await searchParams;
+  const filters = parseFiltersFromSearchParams(resolvedParams);
   const page = Number(resolvedParams.page ?? "0") || 0;
   const search = typeof resolvedParams.q === "string" ? resolvedParams.q : undefined;
-  const { rows, count } = await getPatientSummary({ page, pageSize: PAGE_SIZE, search });
+  const { rows, count } = await getPatientSummaryFiltered(filters, { page, pageSize: PAGE_SIZE, search });
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
+  const qs = new URLSearchParams(resolvedParams as Record<string, string>);
+
+  const pageHref = (p: number) => {
+    const params = new URLSearchParams(qs);
+    params.set("page", String(p));
+    return `/patients?${params.toString()}`;
+  };
+  const exportHref = `/api/export/patients?${qs.toString()}`;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Patient Revenue</h1>
-          <p className="text-sm text-slate-500">{count} patients with billing history</p>
+          <p className="text-sm text-slate-500">
+            {count} patients with billing history in {filters.dateFrom} to {filters.dateTo}. Adjust the filter bar
+            above, then click Update Table.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <form action="/patients" method="get" className="flex items-center gap-2">
+            {Object.entries(resolvedParams).map(([k, v]) =>
+              k !== "q" && k !== "page" && typeof v === "string" ? <input key={k} type="hidden" name={k} value={v} /> : null
+            )}
             <input type="text" name="q" defaultValue={search} placeholder="Search name or phone…" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm" />
             <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">Search</button>
           </form>
-          <a href={`/api/export/patients${search ? `?q=${encodeURIComponent(search)}` : ""}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+          <RefreshTableButton />
+          <a href={exportHref} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
         </div>
       </div>
 
@@ -55,7 +70,7 @@ export default async function PatientsPage({
             {rows.map((r: any) => (
               <tr key={r.patient_id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-3 py-2 font-medium">
-                  <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&patientId=${r.patient_id}`} className="text-blue-700 hover:underline">
+                  <Link href={`/invoices?${new URLSearchParams({ ...(resolvedParams as Record<string, string>), patientId: String(r.patient_id) }).toString()}`} className="text-blue-700 hover:underline">
                     {r.patient_name ?? "—"}
                   </Link>
                 </td>
@@ -72,7 +87,7 @@ export default async function PatientsPage({
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-400">No patients found.</td></tr>
+              <tr><td colSpan={11} className="px-3 py-6 text-center text-slate-400">No patients found for these filters.</td></tr>
             )}
           </tbody>
         </table>
@@ -81,8 +96,8 @@ export default async function PatientsPage({
       <div className="flex items-center justify-between text-sm">
         <span className="text-slate-500">Page {page + 1} of {totalPages}</span>
         <div className="flex gap-2">
-          <Link href={`/patients?page=${Math.max(0, page - 1)}${search ? `&q=${search}` : ""}`} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Previous</Link>
-          <Link href={`/patients?page=${Math.min(totalPages - 1, page + 1)}${search ? `&q=${search}` : ""}`} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Next</Link>
+          <Link href={pageHref(Math.max(0, page - 1))} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Previous</Link>
+          <Link href={pageHref(Math.min(totalPages - 1, page + 1))} className="rounded-md border border-slate-300 px-3 py-1 hover:bg-slate-100">Next</Link>
         </div>
       </div>
     </div>

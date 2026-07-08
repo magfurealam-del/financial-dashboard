@@ -2,6 +2,7 @@ import Link from "next/link";
 import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { getInvoiceSummaryRows } from "@/lib/queries/finance";
 import { formatBDT, formatDateBD, formatPercent } from "@/lib/format";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const PAGE_SIZE = 25;
 
@@ -48,6 +49,7 @@ export default async function InvoicesPage({
             />
             <button type="submit" className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white">Search</button>
           </form>
+          <RefreshTableButton />
           <a href={exportHref} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
         </div>
       </div>

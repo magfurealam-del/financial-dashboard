@@ -1,13 +1,18 @@
 import Link from "next/link";
-import { getDoctorShareSummary, getOtBreakdown } from "@/lib/queries/finance";
-import { formatBDT, formatNumber, formatPercent, todayBD } from "@/lib/format";
+import { getDoctorShareSummaryFiltered, getOtBreakdownFiltered } from "@/lib/queries/finance";
+import { parseFiltersFromSearchParams } from "@/lib/filters";
+import { formatBDT, formatNumber, formatPercent } from "@/lib/format";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
-// This page shows all-time totals, so drill-down links use a wide date range
-// rather than whatever the shared filter bar currently has selected.
-const ALL_TIME_FROM = "2000-01-01";
-
-export default async function DoctorsPage() {
-  const [rows, otRows] = await Promise.all([getDoctorShareSummary(), getOtBreakdown()]);
+export default async function DoctorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedParams = await searchParams;
+  const filters = parseFiltersFromSearchParams(resolvedParams);
+  const [rows, otRows] = await Promise.all([getDoctorShareSummaryFiltered(filters), getOtBreakdownFiltered(filters)]);
+  const qs = new URLSearchParams(resolvedParams as Record<string, string>).toString();
 
   const otByDoctor = otRows.reduce<Record<string, typeof otRows>>((acc, r: any) => {
     const key = r.doctor_name ?? "Unattributed";
@@ -21,12 +26,16 @@ export default async function DoctorsPage() {
         <div>
           <h1 className="text-lg font-semibold">Doctor Revenue Share</h1>
           <p className="text-sm text-slate-500">
-            Doctor share is computed at line-item level from <code>doctor_share_pct</code> (populated from category and
-            item-level share rules). There is no monthly-doctor-invoice table yet to validate/override these amounts or
-            track paid-vs-payable status — see README for this schema gap.
+            {filters.dateFrom} to {filters.dateTo} · Doctor share is computed at line-item level from{" "}
+            <code>doctor_share_pct</code>. There is no monthly-doctor-invoice table yet to validate/override these
+            amounts or track paid-vs-payable status — see README for this schema gap. Adjust the filter bar above,
+            then click Update Table.
           </p>
         </div>
-        <a href="/api/export/doctors" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        <div className="flex items-center gap-2">
+          <RefreshTableButton />
+          <a href={`/api/export/doctors?${qs}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        </div>
       </div>
       <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
@@ -46,7 +55,7 @@ export default async function DoctorsPage() {
             {rows.map((r: any) => (
               <tr key={r.doctor_id} className="border-t border-slate-100 hover:bg-slate-50">
                 <td className="px-3 py-2 font-medium">
-                  <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&doctorId=${r.doctor_id}`} className="text-blue-700 hover:underline">
+                  <Link href={`/invoices?${new URLSearchParams({ ...(resolvedParams as Record<string, string>), doctorId: String(r.doctor_id) }).toString()}`} className="text-blue-700 hover:underline">
                     {r.doctor_name}
                   </Link>
                 </td>
@@ -60,7 +69,7 @@ export default async function DoctorsPage() {
               </tr>
             ))}
             {rows.length === 0 && (
-              <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">No doctor-attributed invoices.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-6 text-center text-slate-400">No doctor-attributed invoices for these filters.</td></tr>
             )}
           </tbody>
         </table>
@@ -91,9 +100,13 @@ export default async function DoctorsPage() {
                   <tr key={`${doctorName}-${r.ot_subcategory}`} className="border-t border-slate-100 hover:bg-slate-50">
                     {idx === 0 && (
                       <td className="px-3 py-2 font-medium" rowSpan={entries.length}>
-                        <Link href={`/invoices?from=${ALL_TIME_FROM}&to=${todayBD()}&doctorId=${r.doctor_id}`} className="text-blue-700 hover:underline">
-                          {doctorName}
-                        </Link>
+                        {r.doctor_id ? (
+                          <Link href={`/invoices?${new URLSearchParams({ ...(resolvedParams as Record<string, string>), doctorId: String(r.doctor_id) }).toString()}`} className="text-blue-700 hover:underline">
+                            {doctorName}
+                          </Link>
+                        ) : (
+                          doctorName
+                        )}
                       </td>
                     )}
                     <td className="px-3 py-2">{r.ot_subcategory}</td>

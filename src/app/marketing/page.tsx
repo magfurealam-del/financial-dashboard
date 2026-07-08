@@ -1,6 +1,8 @@
-import { getMarketingSourceSummary } from "@/lib/queries/finance";
+import { getMarketingSourceSummaryFiltered } from "@/lib/queries/finance";
+import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const METHOD_LABELS: Record<string, string> = {
   unattributed: "No CRM/lead record found",
@@ -22,8 +24,15 @@ const METHOD_DESCRIPTIONS: Record<string, string> = {
     "Matched by phone number, but more than one candidate invoice shared that phone number, so an arbitration step used invoice number/date proximity to pick the right one.",
 };
 
-export default async function MarketingPage() {
-  const rows = await getMarketingSourceSummary();
+export default async function MarketingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedParams = await searchParams;
+  const filters = parseFiltersFromSearchParams(resolvedParams);
+  const rows = await getMarketingSourceSummaryFiltered(filters);
+  const qs = new URLSearchParams(resolvedParams as Record<string, string>).toString();
 
   const bySource = rows.reduce<Record<string, typeof rows>>((acc, r: any) => {
     (acc[r.source_category] ??= []).push(r);
@@ -45,14 +54,19 @@ export default async function MarketingPage() {
         <div>
           <h1 className="text-lg font-semibold">Revenue by Marketing Source</h1>
           <p className="text-sm text-slate-500">
-            Attributed via <code>crm_billing_links</code> (direct invoice match) first, falling back to the
-            patient&apos;s most recent lead-attribution record (<code>lead_attribution</code>) when no direct link
-            exists. {formatNumber(attributedInvoices)} of {formatNumber(totalInvoices)} invoices (
-            {totalInvoices ? Math.round((attributedInvoices / totalInvoices) * 100) : 0}%) are attributed today —
-            the rest have no matching CRM/lead record for that patient.
+            {filters.dateFrom} to {filters.dateTo} · Attributed via <code>crm_billing_links</code> (direct invoice
+            match) first, falling back to the patient&apos;s most recent lead-attribution record (
+            <code>lead_attribution</code>) when no direct link exists. {formatNumber(attributedInvoices)} of{" "}
+            {formatNumber(totalInvoices)} invoices (
+            {totalInvoices ? Math.round((attributedInvoices / totalInvoices) * 100) : 0}%) are attributed in this
+            period — the rest have no matching CRM/lead record for that patient. Adjust the filter bar above, then
+            click Update Table.
           </p>
         </div>
-        <a href="/api/export/marketing" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        <div className="flex items-center gap-2">
+          <RefreshTableButton />
+          <a href={`/api/export/marketing?${qs}`} className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 whitespace-nowrap">Export CSV</a>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

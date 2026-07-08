@@ -4,6 +4,7 @@ import { getDailySummary, getWeeklySummary, getMonthlySummary } from "@/lib/quer
 import { formatBDT, formatNumber, formatPercent, formatDateBD } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TrendChart } from "@/components/TrendChart";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 type Granularity = "daily" | "weekly" | "monthly";
 
@@ -69,8 +70,12 @@ export default async function TrendsPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-semibold">Revenue Trends</h1>
-          <p className="text-sm text-slate-500">{filters.dateFrom} to {filters.dateTo}</p>
+          <p className="text-sm text-slate-500">
+            {filters.dateFrom} to {filters.dateTo}. Adjust the filter bar above, then click Update Table.
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+        <RefreshTableButton />
         <div className="flex gap-1 rounded-md border border-slate-300 bg-white p-1">
           {(["daily", "weekly", "monthly"] as Granularity[]).map((g) => (
             <Link
@@ -81,6 +86,7 @@ export default async function TrendsPage({
               {g}
             </Link>
           ))}
+        </div>
         </div>
       </div>
 

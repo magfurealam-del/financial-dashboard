@@ -1,5 +1,6 @@
 import { getReconciliationIssues } from "@/lib/queries/finance";
 import { cn } from "@/lib/cn";
+import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const ISSUE_LABELS: Record<string, string> = {
   invoice_missing_patient: "Invoice missing patient",
@@ -28,7 +29,10 @@ export default async function ReconciliationPage() {
           <h1 className="text-lg font-semibold">Data Quality / Reconciliation</h1>
           <p className="text-sm text-slate-500">{issues.length} exceptions found across all invoices and line items.</p>
         </div>
-        <a href="/api/export/reconciliation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+        <div className="flex items-center gap-2">
+          <RefreshTableButton />
+          <a href="/api/export/reconciliation" className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">Export CSV</a>
+        </div>
       </div>
 
       {Object.entries(grouped).map(([type, rows]) => (
