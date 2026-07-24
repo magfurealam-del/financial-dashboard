@@ -6,13 +6,16 @@ import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const METHOD_LABELS: Record<string, string> = {
   unattributed: "No validated CRM attribution",
-  patient_lead_attribution_fallback: "Fallback: patient's latest lead attribution",
+  validated_invoice_crm_patient_attribution: "Validated invoice CRM + patient attribution",
+  validated_patient_marketing_attribution: "Validated patient marketing attribution",
 };
 
 const METHOD_DESCRIPTIONS: Record<string, string> = {
   unattributed: "No approved or matched CRM reconciliation and no patient-level lead attribution was available.",
-  patient_lead_attribution_fallback:
-    "No CRM reconciliation lead was available for this invoice, so the patient's latest lead_attribution row is used as a clearly labeled fallback.",
+  validated_invoice_crm_patient_attribution:
+    "The invoice is present in crm_invoice_reconciliation with a matched or approved status, and the patient's validated_source comes from patient_marketing_attribution.",
+  validated_patient_marketing_attribution:
+    "The patient's validated_source comes from patient_marketing_attribution; no matched invoice reconciliation row was required for this patient-level rollup.",
 };
 
 export default async function MarketingPage({
@@ -45,9 +48,9 @@ export default async function MarketingPage({
         <div>
           <h1 className="text-lg font-semibold">Revenue by Marketing Source</h1>
           <p className="text-sm text-slate-500">
-            {filters.dateFrom} to {filters.dateTo} · Validated invoice attribution uses <code>crm_invoice_reconciliation</code>{" "}
-            (matched/approved CRM-to-invoice records), joined to <code>invoices</code> and the matched CRM lead&apos;s{" "}
-            <code>lead_attribution</code>. Patient-level attribution is shown only as a labeled fallback. {formatNumber(attributedInvoices)} of{" "}
+            {filters.dateFrom} to {filters.dateTo} · Validated attribution uses <code>invoices</code> joined to{" "}
+            <code>crm_invoice_reconciliation</code> and the canonical <code>patient_marketing_attribution</code>{" "}
+            rollup. {formatNumber(attributedInvoices)} of{" "}
             {formatNumber(totalInvoices)} invoices (
             {totalInvoices ? Math.round((attributedInvoices / totalInvoices) * 100) : 0}%) are attributed in this
             period. Invoices marked <code>needs_review</code> are excluded. Adjust the filter bar above, then

@@ -584,28 +584,28 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
     }
   }
 
-  const matchedLogIds = Array.from(reconciliationByInvoice.values()).map((r) => r.crm_log_id).filter(Boolean);
   const patientIds = validInvoices.map((r: any) => r.patient_id).filter(Boolean);
-  const [{ data: matchedLeadRows, error: matchedLeadError }, { data: patientLeadRows, error: patientLeadError }] = await Promise.all([
-    matchedLogIds.length
-      ? supabase.from("lead_attribution").select("call_center_log_id,source_category,attribution_confidence,last_touch_date,updated_at").in("call_center_log_id", matchedLogIds)
-      : { data: [], error: null },
-    patientIds.length
-      ? supabase.from("lead_attribution").select("patient_id,source_category,attribution_confidence,last_touch_date,updated_at").in("patient_id", patientIds).order("last_touch_date", { ascending: false, nullsFirst: false })
-      : { data: [], error: null },
-  ]);
-  if (matchedLeadError) throw matchedLeadError;
-  if (patientLeadError) throw patientLeadError;
+  const { data: patientAttributionRows, error: patientAttributionError } = await (patientIds.length
+    ? supabase
+        .from("patient_marketing_attribution")
+        .select("patient_id,validated_source,confidence,updated_at")
+        .in("patient_id", patientIds)
+    : Promise.resolve({ data: [], error: null }));
+  if (patientAttributionError) throw patientAttributionError;
 
-  const matchedLeadByLog = new Map<number, any>();
-  for (const row of (matchedLeadRows ?? []) as any[]) {
-    if (!matchedLeadByLog.has(row.call_center_log_id)) matchedLeadByLog.set(row.call_center_log_id, row);
-  }
-  const patientLeadByPatient = new Map<number, any>();
-  for (const row of (patientLeadRows ?? []) as any[]) {
-    if (!patientLeadByPatient.has(row.patient_id)) patientLeadByPatient.set(row.patient_id, row);
+  const patientAttributionByPatient = new Map<number, any>();
+  for (const row of (patientAttributionRows ?? []) as any[]) {
+    const current = patientAttributionByPatient.get(row.patient_id);
+    if (!current || new Date(row.updated_at ?? 0).getTime() > new Date(current.updated_at ?? 0).getTime()) {
+      patientAttributionByPatient.set(row.patient_id, row);
+    }
   }
 
+  /*
+   * patient_marketing_attribution is the validated patient-level CRM rollup.
+   * It is intentionally preferred over raw lead_attribution rows so the dashboard
+   * agrees with the validated attribution pipeline and its confidence/evidence rules.
+   */
   const byKey = new Map<
     string,
     { source: string; method: string; invoiceIds: Set<number>; patientIds: Set<number>; gross: number; net: number; collected: number; doctorShare: number }
@@ -613,14 +613,13 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
 
   for (const inv of validInvoices as any[]) {
     const reconciliation = reconciliationByInvoice.get(inv.invoice_no);
-    const matchedLead = reconciliation?.crm_log_id ? matchedLeadByLog.get(reconciliation.crm_log_id) : null;
-    const patientLead = inv.patient_id ? patientLeadByPatient.get(inv.patient_id) : null;
-    const source = matchedLead?.source_category ?? patientLead?.source_category ?? "unattributed";
-    const method = matchedLead
-      ? `validated_crm_${reconciliation.match_method || "match"}`
-      : patientLead
-        ? "patient_lead_attribution_fallback"
-        : "unattributed";
+    const patientAttribution = inv.patient_id ? patientAttributionByPatient.get(inv.patient_id) : null;
+    const source = patientAttribution?.validated_source ?? "unattributed";
+    const method = patientAttribution
+      ? reconciliation
+        ? "validated_invoice_crm_patient_attribution"
+        : "validated_patient_marketing_attribution"
+      : "unattributed";
     const r = { source_category: source, attribution_method: method };
 
     const key = `${r.source_category}::${r.attribution_method}`;
