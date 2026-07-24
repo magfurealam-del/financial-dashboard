@@ -613,7 +613,11 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
 
   for (const inv of validInvoices as any[]) {
     const reconciliation = reconciliationByInvoice.get(inv.invoice_no);
-    const patientAttribution = inv.patient_id ? patientAttributionByPatient.get(inv.patient_id) : null;
+    // A validated reconciliation can correct the patient identity on the raw invoice.
+    // Prefer that patient key; only fall back to the invoice header when no validated
+    // reconciliation row exists.
+    const attributionPatientId = reconciliation?.patient_id ?? inv.patient_id;
+    const patientAttribution = attributionPatientId ? patientAttributionByPatient.get(attributionPatientId) : null;
     const source = patientAttribution?.validated_source ?? "unattributed";
     const method = patientAttribution
       ? reconciliation
