@@ -674,3 +674,92 @@ export async function getDoctorOptions() {
   if (error) throw error;
   return data ?? [];
 }
+
+export async function getReceivablesSummary(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let query = supabase
+    .from("vw_finance_invoice_summary")
+    .select("invoice_id,invoice_no,invoice_date,patient_id,patient_name,department,doctor_name,net_amount,collected_amount,outstanding_amount,reconciliation_status,needs_review");
+  query = applyInvoiceFilters(query, filters);
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const now = new Date(`${filters.dateTo}T23:59:59Z`).getTime();
+  const buckets = [
+    { label: "0–7 days", min: 0, max: 7, amount: 0, invoices: 0 },
+    { label: "8–30 days", min: 8, max: 30, amount: 0, invoices: 0 },
+    { label: "31–60 days", min: 31, max: 60, amount: 0, invoices: 0 },
+    { label: "61–90 days", min: 61, max: 90, amount: 0, invoices: 0 },
+    { label: "90+ days", min: 91, max: Number.POSITIVE_INFINITY, amount: 0, invoices: 0 },
+  ];
+  const openRows = (data ?? []).filter((r: any) => Number(r.outstanding_amount) > 0);
+  for (const row of openRows as any[]) {
+    const age = Math.max(0, Math.floor((now - new Date(row.invoice_date ?? filters.dateTo).getTime()) / 86400000));
+    const bucket = buckets.find((b) => age >= b.min && age <= b.max) ?? buckets[buckets.length - 1];
+    bucket.amount += Number(row.outstanding_amount) || 0;
+    bucket.invoices += 1;
+  }
+  const topInvoices = [...openRows]
+    .sort((a: any, b: any) => Number(b.outstanding_amount) - Number(a.outstanding_amount))
+    .slice(0, 10);
+  const totalNet = (data ?? []).reduce((s: number, r: any) => s + (Number(r.net_amount) || 0), 0);
+  const totalCollected = (data ?? []).reduce((s: number, r: any) => s + (Number(r.collected_amount) || 0), 0);
+  const totalOutstanding = openRows.reduce((s: number, r: any) => s + (Number(r.outstanding_amount) || 0), 0);
+  return { buckets, topInvoices, totalNet, totalCollected, totalOutstanding, openInvoiceCount: openRows.length };
+}
+
+export async function getIpdOperationalSummary() {
+  const supabase = getSupabaseServerClient();
+  const [{ data: admissions, error: admissionError }, { data: invoices, error: invoiceError }] = await Promise.all([
+    supabase.from("admissions").select("id,an,patient_id,doctor_id,admitted_on,discharged_on,ward_name,bed_name,status,patient_type").eq("admission_type", "IPD").is("discharged_on", null),
+    supabase.from("invoices").select("id,admission_id,patient_id,invoice_no,invoice_date,net_bill,total_due,total_collected,invoice_status,needs_review").not("invoice_status", "in", "(cancelled,void)").gt("total_due", 0),
+  ]);
+  if (admissionError) throw admissionError;
+  if (invoiceError) throw invoiceError;
+  const byAdmission = new Map<number, any>();
+  for (const invoice of (invoices ?? []) as any[]) {
+    const current = byAdmission.get(invoice.admission_id);
+    if (current) {
+      current.total_due = Number(current.total_due || 0) + Number(invoice.total_due || 0);
+      current.total_collected = Number(current.total_collected || 0) + Number(invoice.total_collected || 0);
+    } else {
+      byAdmission.set(invoice.admission_id, { ...invoice });
+    }
+  }
+  const open = (admissions ?? []).map((a: any) => ({ ...a, invoice: byAdmission.get(a.id) ?? null })).filter((a: any) => a.invoice);
+  return {
+    currentAdmissions: admissions ?? [],
+    openBalanceAdmissions: open,
+    missingInvoiceCount: (admissions ?? []).filter((a: any) => !byAdmission.has(a.id)).length,
+    paidOrNoBalanceCount: Math.max(0, (admissions ?? []).length - open.length),
+    totalOutstanding: open.reduce((s: number, a: any) => s + (Number(a.invoice?.total_due) || 0), 0),
+  };
+}
+
+export async function getExecutiveTrustSummary(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  const [{ data: invoices, error: invoiceError }, { count: reconciliationIssues, error: reconciliationError }, { data: attributed, error: attributionError }] = await Promise.all([
+    supabase.from("vw_finance_invoice_summary").select("invoice_id,patient_id,needs_review,doctor_id,doctor_name,net_amount,outstanding_amount").gte("invoice_date", filters.dateFrom).lte("invoice_date", filters.dateTo),
+    supabase.from("vw_finance_reconciliation_issues").select("id", { count: "exact", head: true }),
+    supabase.from("patient_marketing_attribution").select("patient_id,confidence").not("validated_source", "is", null),
+  ]);
+  if (invoiceError) throw invoiceError;
+  if (reconciliationError) throw reconciliationError;
+  if (attributionError) throw attributionError;
+  const rows = invoices ?? [];
+  const reviewCount = rows.filter((r: any) => r.needs_review).length;
+  const missingDoctorCount = rows.filter((r: any) => !r.doctor_id && !r.doctor_name).length;
+  const attributedPatientIds = new Set((attributed ?? []).map((r: any) => r.patient_id));
+  const patientCount = new Set(rows.map((r: any) => r.patient_id).filter(Boolean)).size;
+  const attributedInvoiceCount = rows.filter((r: any) => attributedPatientIds.has((r as any).patient_id)).length;
+  return {
+    invoiceCount: rows.length,
+    reviewCount,
+    missingDoctorCount,
+    reconciliationIssues: reconciliationIssues ?? 0,
+    attributedInvoiceCount,
+    attributionCoverage: rows.length ? (attributedInvoiceCount / rows.length) * 100 : 0,
+    patientCount,
+    sourceRefreshedAt: new Date().toISOString(),
+  };
+}

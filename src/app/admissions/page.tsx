@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAdmissionSummary, getIpdCurrentStatus, getIpdDailyCensus } from "@/lib/queries/finance";
+import { getAdmissionSummary, getIpdCurrentStatus, getIpdDailyCensus, getIpdOperationalSummary } from "@/lib/queries/finance";
 import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatDateTimeBD, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -18,10 +18,11 @@ export default async function AdmissionsPage({
   const filters = parseFiltersFromSearchParams(resolvedParams);
   const page = Number(resolvedParams.page ?? "0") || 0;
   const admissionType = typeof resolvedParams.type === "string" ? resolvedParams.type : "IPD";
-  const [{ rows, count }, currentStatus, dailyCensus] = await Promise.all([
+  const [{ rows, count }, currentStatus, dailyCensus, operational] = await Promise.all([
     getAdmissionSummary({ page, pageSize: PAGE_SIZE, admissionType: admissionType || undefined, filters }),
     getIpdCurrentStatus(),
     getIpdDailyCensus(),
+    getIpdOperationalSummary(),
   ]);
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
   const qs = new URLSearchParams(resolvedParams as Record<string, string>);
@@ -65,6 +66,18 @@ export default async function AdmissionsPage({
           <div className="rounded-lg border border-slate-900 bg-slate-900 p-3 text-white">
             <div className="text-xs uppercase text-slate-300">Total in IPD</div>
             <div className="text-2xl font-semibold">{currentStatus.length}</div>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs uppercase text-amber-700">Open balance patients</div>
+            <div className="text-2xl font-semibold text-amber-950">{operational.openBalanceAdmissions.length}</div>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs uppercase text-amber-700">Open IPD receivable</div>
+            <div className="text-xl font-semibold text-amber-950">{formatBDT(operational.totalOutstanding)}</div>
+          </div>
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+            <div className="text-xs uppercase text-rose-700">Missing discharge confirmation</div>
+            <div className="text-2xl font-semibold text-rose-950">{operational.currentAdmissions.length}</div>
           </div>
           {WARD_CATEGORIES.map((w) => (
             <div key={w} className="rounded-lg border border-slate-200 p-3">

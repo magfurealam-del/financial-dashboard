@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { BarChart3, ClipboardList, Database, FileCheck2, HeartPulse, LayoutDashboard, Megaphone, Stethoscope, Users, WalletCards } from "lucide-react";
+import { BarChart3, ClipboardList, Database, FileCheck2, HeartPulse, LayoutDashboard, Megaphone, ReceiptText, Stethoscope, Users, WalletCards } from "lucide-react";
 
 const LINKS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/trends", label: "Trends", icon: BarChart3 },
   { href: "/invoices", label: "Invoices", icon: ClipboardList },
+  { href: "/receivables", label: "Receivables", icon: ReceiptText },
   { href: "/departments", label: "Departments", icon: Database },
   { href: "/doctors", label: "Doctor Shares", icon: Stethoscope },
   { href: "/patients", label: "Patients", icon: Users },
