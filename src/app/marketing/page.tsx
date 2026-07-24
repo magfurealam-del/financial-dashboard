@@ -5,23 +5,14 @@ import { cn } from "@/lib/cn";
 import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 const METHOD_LABELS: Record<string, string> = {
-  unattributed: "No CRM/lead record found",
-  patient_lead_attribution: "Patient-level (most recent lead touch)",
-  phone_e164_exact: "Direct match: phone number",
-  hn_raw_match: "Direct match: hospital number (HN)",
-  phone_e164_invoice_arbiter: "Direct match: phone + invoice arbitration",
+  unattributed: "No validated CRM attribution",
+  patient_lead_attribution_fallback: "Fallback: patient's latest lead attribution",
 };
 
 const METHOD_DESCRIPTIONS: Record<string, string> = {
-  unattributed: "This patient has no matching CRM lead or billing-link record at all — no marketing source can be determined.",
-  patient_lead_attribution:
-    "No direct link exists between this invoice and a CRM record, so it was matched using the patient's most recent lead_attribution row (their latest tracked marketing touchpoint) instead of this specific invoice.",
-  phone_e164_exact:
-    "Matched directly: this invoice's phone number (normalized to E.164 format) exactly matches the phone number on a crm_billing_links record.",
-  hn_raw_match:
-    "Matched directly: this invoice's raw hospital number (HN) matches the HN recorded in the crm_billing_links record — used when phone numbers didn't match or weren't available.",
-  phone_e164_invoice_arbiter:
-    "Matched by phone number, but more than one candidate invoice shared that phone number, so an arbitration step used invoice number/date proximity to pick the right one.",
+  unattributed: "No approved or matched CRM reconciliation and no patient-level lead attribution was available.",
+  patient_lead_attribution_fallback:
+    "No CRM reconciliation lead was available for this invoice, so the patient's latest lead_attribution row is used as a clearly labeled fallback.",
 };
 
 export default async function MarketingPage({
@@ -54,12 +45,12 @@ export default async function MarketingPage({
         <div>
           <h1 className="text-lg font-semibold">Revenue by Marketing Source</h1>
           <p className="text-sm text-slate-500">
-            {filters.dateFrom} to {filters.dateTo} · Attributed via <code>crm_billing_links</code> (direct invoice
-            match) first, falling back to the patient&apos;s most recent lead-attribution record (
-            <code>lead_attribution</code>) when no direct link exists. {formatNumber(attributedInvoices)} of{" "}
+            {filters.dateFrom} to {filters.dateTo} · Validated invoice attribution uses <code>crm_invoice_reconciliation</code>{" "}
+            (matched/approved CRM-to-invoice records), joined to <code>invoices</code> and the matched CRM lead&apos;s{" "}
+            <code>lead_attribution</code>. Patient-level attribution is shown only as a labeled fallback. {formatNumber(attributedInvoices)} of{" "}
             {formatNumber(totalInvoices)} invoices (
             {totalInvoices ? Math.round((attributedInvoices / totalInvoices) * 100) : 0}%) are attributed in this
-            period — the rest have no matching CRM/lead record for that patient. Adjust the filter bar above, then
+            period. Invoices marked <code>needs_review</code> are excluded. Adjust the filter bar above, then
             click Update Table.
           </p>
         </div>

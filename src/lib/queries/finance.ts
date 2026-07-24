@@ -560,24 +560,68 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
 
   let invoiceQuery = supabase
     .from("vw_finance_invoice_summary")
-    .select("invoice_id,department,doctor_id,patient_type,payment_status,patient_id,gross_amount,net_amount,collected_amount,doctor_share_total");
+    .select("invoice_id,invoice_no,department,doctor_id,patient_type,payment_status,patient_id,gross_amount,net_amount,collected_amount,doctor_share_total,reconciliation_status");
   invoiceQuery = applyInvoiceFilters(invoiceQuery, filters);
-  const [{ data: invoiceRows, error: invErr }, { data: attribRows, error: attribErr }] = await Promise.all([
-    invoiceQuery,
-    supabase.from("vw_finance_invoice_marketing").select("invoice_id,source_category,attribution_method"),
-  ]);
+  const { data: invoiceRows, error: invErr } = await invoiceQuery;
   if (invErr) throw invErr;
-  if (attribErr) throw attribErr;
 
-  const invoiceById = new Map((invoiceRows ?? []).map((r: any) => [r.invoice_id, r]));
+  const validInvoices = (invoiceRows ?? []).filter((r: any) => r.reconciliation_status !== "needs_review");
+  const invoiceNos = validInvoices.map((r: any) => r.invoice_no).filter(Boolean);
+  const { data: reconciliations, error: reconciliationError } = invoiceNos.length
+    ? await supabase
+        .from("crm_invoice_reconciliation")
+        .select("invoice_no,patient_id,crm_log_id,match_method,match_status,source_truth,updated_at")
+        .in("invoice_no", invoiceNos)
+        .in("match_status", ["matched", "approved_auto"])
+    : { data: [], error: null };
+  if (reconciliationError) throw reconciliationError;
+
+  const reconciliationByInvoice = new Map<string, any>();
+  for (const row of (reconciliations ?? []) as any[]) {
+    const current = reconciliationByInvoice.get(row.invoice_no);
+    if (!current || new Date(row.updated_at ?? 0).getTime() > new Date(current.updated_at ?? 0).getTime()) {
+      reconciliationByInvoice.set(row.invoice_no, row);
+    }
+  }
+
+  const matchedLogIds = Array.from(reconciliationByInvoice.values()).map((r) => r.crm_log_id).filter(Boolean);
+  const patientIds = validInvoices.map((r: any) => r.patient_id).filter(Boolean);
+  const [{ data: matchedLeadRows, error: matchedLeadError }, { data: patientLeadRows, error: patientLeadError }] = await Promise.all([
+    matchedLogIds.length
+      ? supabase.from("lead_attribution").select("call_center_log_id,source_category,attribution_confidence,last_touch_date,updated_at").in("call_center_log_id", matchedLogIds)
+      : { data: [], error: null },
+    patientIds.length
+      ? supabase.from("lead_attribution").select("patient_id,source_category,attribution_confidence,last_touch_date,updated_at").in("patient_id", patientIds).order("last_touch_date", { ascending: false, nullsFirst: false })
+      : { data: [], error: null },
+  ]);
+  if (matchedLeadError) throw matchedLeadError;
+  if (patientLeadError) throw patientLeadError;
+
+  const matchedLeadByLog = new Map<number, any>();
+  for (const row of (matchedLeadRows ?? []) as any[]) {
+    if (!matchedLeadByLog.has(row.call_center_log_id)) matchedLeadByLog.set(row.call_center_log_id, row);
+  }
+  const patientLeadByPatient = new Map<number, any>();
+  for (const row of (patientLeadRows ?? []) as any[]) {
+    if (!patientLeadByPatient.has(row.patient_id)) patientLeadByPatient.set(row.patient_id, row);
+  }
+
   const byKey = new Map<
     string,
     { source: string; method: string; invoiceIds: Set<number>; patientIds: Set<number>; gross: number; net: number; collected: number; doctorShare: number }
   >();
 
-  for (const r of (attribRows ?? []) as any[]) {
-    const inv = invoiceById.get(r.invoice_id);
-    if (!inv) continue; // invoice didn't match the current filters (date range/department/doctor/etc.)
+  for (const inv of validInvoices as any[]) {
+    const reconciliation = reconciliationByInvoice.get(inv.invoice_no);
+    const matchedLead = reconciliation?.crm_log_id ? matchedLeadByLog.get(reconciliation.crm_log_id) : null;
+    const patientLead = inv.patient_id ? patientLeadByPatient.get(inv.patient_id) : null;
+    const source = matchedLead?.source_category ?? patientLead?.source_category ?? "unattributed";
+    const method = matchedLead
+      ? `validated_crm_${reconciliation.match_method || "match"}`
+      : patientLead
+        ? "patient_lead_attribution_fallback"
+        : "unattributed";
+    const r = { source_category: source, attribution_method: method };
 
     const key = `${r.source_category}::${r.attribution_method}`;
     if (!byKey.has(key)) {
