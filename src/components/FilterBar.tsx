@@ -29,7 +29,7 @@ export function FilterBar({ departments, doctors, patientTypes, paymentStatuses 
   }
 
   return (
-    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+    <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-[0_4px_16px_rgba(15,23,42,.03)] backdrop-blur">
       <div className="flex items-center gap-2">
         <label className="text-xs font-medium text-slate-500">From</label>
         <input

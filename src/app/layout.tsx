@@ -30,9 +30,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="min-h-full flex flex-col bg-[#f6f8fb] text-[#172033]">
         <header className="flex flex-col">
-          <div className="flex items-center justify-between bg-slate-900 px-4 py-2">
+          <div className="flex items-center justify-between bg-[#101a33] px-5 py-3 text-white">
             <span className="text-sm font-semibold text-white">Ekagra Health · Finance Dashboard</span>
           </div>
           <Suspense>
@@ -42,7 +42,7 @@ export default function RootLayout({
             <FilterBarContainer />
           </Suspense>
         </header>
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </body>
     </html>
   );

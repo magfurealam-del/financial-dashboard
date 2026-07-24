@@ -13,14 +13,14 @@ export function KpiCard({ label, value, changePct, href, tone = "default" }: Kpi
   const content = (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-lg border bg-white p-4 shadow-sm transition hover:shadow-md",
+        "group flex flex-col gap-2 rounded-2xl border bg-white p-5 shadow-[0_8px_30px_rgba(15,23,42,.04)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(15,23,42,.09)]",
         tone === "warning" && "border-amber-300",
         tone === "danger" && "border-red-300",
-        tone === "default" && "border-slate-200"
+        tone === "default" && "border-slate-200/80"
       )}
     >
-      <span className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</span>
-      <span className="text-xl font-semibold text-slate-900">{value}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[.12em] text-slate-400">{label}</span>
+      <span className="text-2xl font-semibold tracking-tight text-slate-900">{value}</span>
       {changePct !== undefined && changePct !== null && (
         <span
           className={cn(

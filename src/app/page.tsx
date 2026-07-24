@@ -28,10 +28,11 @@ export default async function ExecutiveSummaryPage({
   const departmentEntries = Object.entries(current.byDepartment).sort((a, b) => b[1] - a[1]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex max-w-[1600px] flex-col gap-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Executive Summary</h1>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-[.16em] text-indigo-600">Leadership view</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Executive Summary</h1>
           <p className="text-sm text-slate-500">
             {filters.dateFrom} to {filters.dateTo} · figures in BDT · Asia/Dhaka. Adjust the filter bar above, then
             click Update Table.
@@ -40,7 +41,7 @@ export default async function ExecutiveSummaryPage({
         <RefreshTableButton />
       </div>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Gross Revenue" value={formatBDT(current.grossRevenue)} changePct={periodOverPeriodChange(current.grossRevenue, previous.grossRevenue)} href={`/invoices?${qs}`} />
         <KpiCard label="Net Revenue" value={formatBDT(current.netRevenue)} changePct={periodOverPeriodChange(current.netRevenue, previous.netRevenue)} href={`/invoices?${qs}`} />
         <KpiCard label="Collected Revenue" value={formatBDT(current.collectedRevenue)} changePct={periodOverPeriodChange(current.collectedRevenue, previous.collectedRevenue)} href={`/invoices?${qs}&paymentStatus=paid`} />
