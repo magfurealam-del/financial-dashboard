@@ -1,4 +1,4 @@
-import { getMarketingSourceSummaryFiltered } from "@/lib/queries/finance";
+import { getMarketingSourceSummaryFiltered, getFacebookAttributionAudit } from "@/lib/queries/finance";
 import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -25,7 +25,7 @@ export default async function MarketingPage({
 }) {
   const resolvedParams = await searchParams;
   const filters = parseFiltersFromSearchParams(resolvedParams);
-  const rows = await getMarketingSourceSummaryFiltered(filters);
+  const [rows, facebookAudit] = await Promise.all([getMarketingSourceSummaryFiltered(filters), getFacebookAttributionAudit(filters)]);
   const qs = new URLSearchParams(resolvedParams as Record<string, string>).toString();
 
   const bySource = rows.reduce<Record<string, typeof rows>>((acc, r: any) => {
@@ -158,6 +158,11 @@ export default async function MarketingPage({
           </tbody>
         </table>
       </div>
+
+      <section className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5">
+        <div className="mb-4"><h2 className="text-sm font-semibold text-slate-900">Facebook attribution audit and validation</h2><p className="mt-1 text-xs text-slate-600">This control table tests duplicate invoices, patient deduplication, CRM correction precedence, and financial summation for the selected period.</p></div>
+        <div className="overflow-x-auto rounded-xl border border-indigo-100 bg-white"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-4 py-2">Control</th><th className="px-4 py-2 text-right">Result</th><th className="px-4 py-2">Validation interpretation</th></tr></thead><tbody>{facebookAudit.map((row: any) => <tr key={row.control} className="border-t border-slate-100"><td className="px-4 py-2 font-medium text-slate-800">{row.control}</td><td className="px-4 py-2 text-right font-semibold">{typeof row.result === "number" ? row.result.toLocaleString("en-BD") : row.result}</td><td className="px-4 py-2 text-slate-600">{row.interpretation}</td></tr>)}</tbody></table></div>
+      </section>
     </div>
   );
 }

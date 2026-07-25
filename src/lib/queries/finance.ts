@@ -659,6 +659,53 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
     .sort((a, b) => b.net_revenue - a.net_revenue);
 }
 
+export async function getFacebookAttributionAudit(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let invoiceQuery = supabase.from("invoices").select("id,invoice_no,patient_id,net_bill,total_collected,total_due,invoice_status,needs_review");
+  invoiceQuery = applyInvoiceFilters(invoiceQuery, filters);
+  const [{ data: invoices, error: invoiceError }, { data: reconciliations, error: reconError }, { data: attribution, error: attributionError }] = await Promise.all([
+    invoiceQuery,
+    supabase.from("crm_invoice_reconciliation").select("id,invoice_no,patient_id,match_status,match_method,updated_at").in("match_status", ["matched", "approved_auto"]),
+    supabase.from("patient_marketing_attribution").select("patient_id,validated_source,confidence").ilike("validated_source", "%facebook%"),
+  ]);
+  if (invoiceError) throw invoiceError;
+  if (reconError) throw reconError;
+  if (attributionError) throw attributionError;
+
+  const reconByInvoice = new Map<string, any>();
+  for (const row of (reconciliations ?? []) as any[]) {
+    const current = reconByInvoice.get(row.invoice_no);
+    if (!current || new Date(row.updated_at ?? 0).getTime() > new Date(current.updated_at ?? 0).getTime()) reconByInvoice.set(row.invoice_no, row);
+  }
+  const facebookPatients = new Map((attribution ?? []).map((row: any) => [row.patient_id, row]));
+  const candidates = (invoices ?? []).filter((row: any) => !row.needs_review && !["cancelled", "void"].includes(row.invoice_status));
+  const matched = candidates.map((invoice: any) => {
+    const recon = reconByInvoice.get(invoice.invoice_no);
+    const patientId = recon?.patient_id ?? invoice.patient_id;
+    return { ...invoice, patientId, recon, facebook: facebookPatients.get(patientId) };
+  }).filter((row: any) => row.facebook);
+  const unique = <T>(values: T[]) => new Set(values.filter(Boolean)).size;
+  const duplicateInvoiceRows = matched.length - unique(matched.map((row: any) => row.invoice_no));
+  const patientCounts = new Map<number, number>();
+  for (const row of matched) patientCounts.set(row.patientId, (patientCounts.get(row.patientId) ?? 0) + 1);
+  const repeatPatients = Array.from(patientCounts.values()).filter((count) => count > 1).length;
+  const rows = [
+    ["Eligible invoice rows", candidates.length, "Non-cancelled/non-void and not needs_review; control population."],
+    ["Facebook-attributed invoice rows", matched.length, "Invoice-level rows linked to a canonical Facebook patient."],
+    ["Unique invoice numbers", unique(matched.map((row: any) => row.invoice_no)), duplicateInvoiceRows ? "Investigate duplicate invoice numbers." : "Pass: no duplicate invoice numbers."],
+    ["Unique invoice records", unique(matched.map((row: any) => row.id)), "Primary key count; must equal unique invoice numbers."],
+    ["Unique Facebook patients", unique(matched.map((row: any) => row.patientId)), "Deduplicated patient count; repeat visits are not new patients."],
+    ["Patients with multiple Facebook invoices", repeatPatients, "Not overcounting by itself; represents repeat invoice activity."],
+    ["Invoices using CRM patient correction", matched.filter((row: any) => row.recon).length, "Uses crm_invoice_reconciliation.patient_id when matched/approved."],
+    ["Invoices using direct patient key", matched.filter((row: any) => !row.recon).length, "Uses invoices.patient_id when no validated CRM correction is required."],
+    ["Missing resolved patient key", matched.filter((row: any) => !row.patientId).length, "Must be zero for a valid Facebook attribution."],
+    ["Facebook net revenue", matched.reduce((sum: number, row: any) => sum + Number(row.net_bill || 0), 0), "Sum once per unique invoice record."],
+    ["Facebook collected revenue", matched.reduce((sum: number, row: any) => sum + Number(row.total_collected || 0), 0), "Sum once per unique invoice record."],
+    ["Facebook outstanding balance", matched.reduce((sum: number, row: any) => sum + Number(row.total_due || 0), 0), "Sum once per unique invoice record."],
+  ];
+  return rows.map(([control, result, interpretation]) => ({ control, result, interpretation }));
+}
+
 export async function getDepartmentOptions() {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.from("invoices").select("department").not("department", "is", null);
