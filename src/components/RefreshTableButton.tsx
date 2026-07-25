@@ -11,7 +11,8 @@ export function RefreshTableButton({ label = "Update Table" }: { label?: string 
   return (
     <button
       onClick={() => {
-        startTransition(() => {
+        startTransition(async () => {
+          await fetch("/api/refresh", { method: "POST" });
           router.refresh();
         });
         setJustUpdated(true);

@@ -130,7 +130,7 @@ async function getDiagnosticsLineTotalsByInvoice(invoiceIds: number[]) {
   return result;
 }
 
-export async function getExecutiveSummary(filters: FinanceFilters) {
+async function getExecutiveSummaryUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   let query = supabase.from("vw_finance_invoice_summary").select(
     "gross_amount,discount_amount,refund_amount,net_amount,collected_amount,outstanding_amount,doctor_share_total,direct_cost_total,department,patient_id,invoice_id,patient_type"
@@ -183,7 +183,11 @@ export async function getExecutiveSummary(filters: FinanceFilters) {
   };
 }
 
-export async function getDailySummary(filters: FinanceFilters) {
+export const getExecutiveSummary = (filters: FinanceFilters) => unstable_cache(
+  () => getExecutiveSummaryUncached(filters), ["finance-executive", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
+
+async function getDailySummaryUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("vw_finance_daily_summary")
@@ -194,8 +198,11 @@ export async function getDailySummary(filters: FinanceFilters) {
   if (error) throw error;
   return data ?? [];
 }
+export const getDailySummary = (filters: FinanceFilters) => unstable_cache(
+  () => getDailySummaryUncached(filters), ["finance-daily", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
 
-export async function getWeeklySummary(filters: FinanceFilters) {
+async function getWeeklySummaryUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("vw_finance_weekly_summary")
@@ -206,8 +213,11 @@ export async function getWeeklySummary(filters: FinanceFilters) {
   if (error) throw error;
   return data ?? [];
 }
+export const getWeeklySummary = (filters: FinanceFilters) => unstable_cache(
+  () => getWeeklySummaryUncached(filters), ["finance-weekly", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
 
-export async function getMonthlySummary(filters: FinanceFilters) {
+async function getMonthlySummaryUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase
     .from("vw_finance_monthly_summary")
@@ -218,6 +228,9 @@ export async function getMonthlySummary(filters: FinanceFilters) {
   if (error) throw error;
   return data ?? [];
 }
+export const getMonthlySummary = (filters: FinanceFilters) => unstable_cache(
+  () => getMonthlySummaryUncached(filters), ["finance-monthly", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
 
 export async function getDepartmentSummary() {
   const supabase = getSupabaseServerClient();
@@ -556,7 +569,7 @@ export async function getMarketingSourceSummary() {
   return data ?? [];
 }
 
-export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters) {
+async function getMarketingSourceSummaryFilteredUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
 
   let invoiceQuery = supabase
@@ -665,6 +678,10 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
     .sort((a, b) => b.net_revenue - a.net_revenue);
 }
 
+export const getMarketingSourceSummaryFiltered = (filters: FinanceFilters) => unstable_cache(
+  () => getMarketingSourceSummaryFilteredUncached(filters), ["finance-marketing", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
+
 export async function getFacebookAttributionAudit(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   let invoiceQuery = supabase.from("invoices").select("id,invoice_no,patient_id,net_bill,total_collected,total_due,invoice_status,needs_review");
@@ -732,7 +749,7 @@ export async function getDoctorOptions() {
 export const getDepartmentOptionsCached = unstable_cache(getDepartmentOptions, ["finance-department-options"], { revalidate: 3600 });
 export const getDoctorOptionsCached = unstable_cache(getDoctorOptions, ["finance-doctor-options"], { revalidate: 3600 });
 
-export async function getReceivablesSummary(filters: FinanceFilters) {
+async function getReceivablesSummaryUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   let query = supabase
     .from("vw_finance_invoice_summary")
@@ -764,6 +781,10 @@ export async function getReceivablesSummary(filters: FinanceFilters) {
   const totalOutstanding = openRows.reduce((s: number, r: any) => s + (Number(r.outstanding_amount) || 0), 0);
   return { buckets, topInvoices, totalNet, totalCollected, totalOutstanding, openInvoiceCount: openRows.length };
 }
+
+export const getReceivablesSummary = (filters: FinanceFilters) => unstable_cache(
+  () => getReceivablesSummaryUncached(filters), ["finance-receivables", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
 
 export async function getIpdOperationalSummary() {
   const supabase = getSupabaseServerClient();
