@@ -4,6 +4,7 @@ import { getDailySummary, getWeeklySummary, getMonthlySummary } from "@/lib/quer
 import { formatBDT, formatNumber, formatPercent, formatDateBD } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { TrendChart } from "@/components/TrendChart";
+import { TrendSummaryCharts } from "@/components/TrendSummaryCharts";
 import { RefreshTableButton } from "@/components/RefreshTableButton";
 
 type Granularity = "daily" | "weekly" | "monthly";
@@ -33,6 +34,8 @@ export default async function TrendsPage({
     "Collected Revenue": Number(r.collected_revenue) || 0,
     "Contribution Margin": Number(r.contribution_margin) || 0,
     "Doctor Share": Number(r.doctor_share_total) || 0,
+    "Collection Rate": r.net_revenue ? (Number(r.collected_revenue) / Number(r.net_revenue)) * 100 : 0,
+    "Contribution Margin %": r.net_revenue ? (Number(r.contribution_margin) / Number(r.net_revenue)) * 100 : 0,
   }));
 
   const qs = new URLSearchParams(resolvedParams as Record<string, string>);
@@ -91,7 +94,7 @@ export default async function TrendsPage({
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-3 text-sm font-semibold text-slate-700">Net Revenue, Collections &amp; Contribution Margin</h2>
+        <div className="mb-4"><h2 className="text-sm font-semibold text-slate-900">Financial performance by {granularity} period</h2><p className="mt-1 text-xs text-slate-500">Solid lines show actual values. The dashed line is the average net revenue across the selected period.</p></div>
         <TrendChart
           data={chartData}
           xKey="label"
@@ -101,8 +104,11 @@ export default async function TrendsPage({
             { key: "Contribution Margin", label: "Contribution Margin", color: "#9333ea" },
             { key: "Doctor Share", label: "Doctor Share", color: "#ea580c" },
           ]}
+          averageLines={[{ key: "Net Revenue", label: "Average net revenue", color: "#6366f1" }]}
         />
       </section>
+
+      <TrendSummaryCharts data={chartData} />
 
       <section className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">

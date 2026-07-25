@@ -1,14 +1,15 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from "recharts";
 
 interface TrendChartProps {
   data: Record<string, unknown>[];
   xKey: string;
   lines: { key: string; label: string; color: string }[];
+  averageLines?: { key: string; label: string; color: string }[];
 }
 
-export function TrendChart({ data, xKey, lines }: TrendChartProps) {
+export function TrendChart({ data, xKey, lines, averageLines = [] }: TrendChartProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 12, right: 16, left: 4, bottom: 4 }}>
@@ -20,6 +21,11 @@ export function TrendChart({ data, xKey, lines }: TrendChartProps) {
         {lines.map((line) => (
           <Line key={line.key} type="monotone" dataKey={line.key} name={line.label} stroke={line.color} strokeWidth={2.5} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
         ))}
+        {averageLines.map((line) => {
+          const values = data.map((row) => Number(row[line.key]) || 0);
+          const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+          return <ReferenceLine key={line.key} y={average} stroke={line.color} strokeDasharray="6 5" strokeWidth={2} label={{ value: `${line.label}: ${Math.round(average).toLocaleString("en-BD")}`, position: "insideTopRight", fill: line.color, fontSize: 11 }} />;
+        })}
       </LineChart>
     </ResponsiveContainer>
   );
