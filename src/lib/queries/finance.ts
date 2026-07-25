@@ -741,11 +741,11 @@ async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters, so
     if (!current || new Date(row.updated_at ?? 0).getTime() > new Date(current.updated_at ?? 0).getTime()) reconByInvoice.set(row.invoice_no, row);
   }
   const attributedPatients = new Set((attributions ?? []).map((row: any) => row.patient_id));
-  const byDepartment = new Map<string, { invoiceIds: Set<number>; patientIds: Set<number>; attributedInvoiceIds: Set<number>; attributedPatientIds: Set<number>; net: number; attributedNet: number; collected: number; attributedCollected: number; outstanding: number; doctorShare: number; contribution: number }>();
+  const byDepartment = new Map<string, { invoiceIds: Set<number>; patientIds: Set<number>; attributedInvoiceIds: Set<number>; attributedPatientIds: Set<number>; net: number; attributedNet: number; collected: number; attributedCollected: number; outstanding: number; attributedOutstanding: number; doctorShare: number; attributedDoctorShare: number; contribution: number; attributedContribution: number }>();
   for (const invoice of (invoices ?? []) as any[]) {
     if (invoice.reconciliation_status === "needs_review") continue;
     const department = invoice.department ?? "Unmapped";
-    const entry = byDepartment.get(department) ?? { invoiceIds: new Set(), patientIds: new Set(), attributedInvoiceIds: new Set(), attributedPatientIds: new Set(), net: 0, attributedNet: 0, collected: 0, attributedCollected: 0, outstanding: 0, doctorShare: 0, contribution: 0 };
+    const entry = byDepartment.get(department) ?? { invoiceIds: new Set(), patientIds: new Set(), attributedInvoiceIds: new Set(), attributedPatientIds: new Set(), net: 0, attributedNet: 0, collected: 0, attributedCollected: 0, outstanding: 0, attributedOutstanding: 0, doctorShare: 0, attributedDoctorShare: 0, contribution: 0, attributedContribution: 0 };
     const recon = reconByInvoice.get(invoice.invoice_no);
     const patientId = recon?.patient_id ?? invoice.patient_id;
     const isAttributed = patientId && attributedPatients.has(patientId);
@@ -761,6 +761,9 @@ async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters, so
       if (patientId) entry.attributedPatientIds.add(patientId);
       entry.attributedNet += Number(invoice.net_amount) || 0;
       entry.attributedCollected += Number(invoice.collected_amount) || 0;
+      entry.attributedOutstanding += Number(invoice.outstanding_amount) || 0;
+      entry.attributedDoctorShare += Number(invoice.doctor_share_total) || 0;
+      entry.attributedContribution += (Number(invoice.net_amount) || 0) - (Number(invoice.doctor_share_total) || 0);
     }
     byDepartment.set(department, entry);
   }
@@ -777,8 +780,11 @@ async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters, so
     collected_revenue: value.collected,
     attributed_collected_revenue: value.attributedCollected,
     outstanding_revenue: value.outstanding,
+    attributed_outstanding_revenue: value.attributedOutstanding,
     doctor_share_total: value.doctorShare,
+    attributed_doctor_share_total: value.attributedDoctorShare,
     contribution_margin: value.contribution,
+    attributed_contribution_margin: value.attributedContribution,
     collection_rate: value.net ? (value.collected / value.net) * 100 : 0,
   })).sort((a, b) => b.net_revenue - a.net_revenue);
 }
