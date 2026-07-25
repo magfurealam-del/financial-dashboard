@@ -720,14 +720,16 @@ export const getMarketingSourceSummaryFiltered = (filters: FinanceFilters) => un
   () => getMarketingSourceSummaryFilteredUncached(filters), ["finance-marketing", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
 )();
 
-async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters) {
+async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters, sourceFilter?: string) {
   const supabase = getSupabaseServerClient();
   let invoiceQuery = supabase.from("vw_finance_invoice_summary").select("invoice_id,invoice_no,department,patient_id,net_amount,collected_amount,outstanding_amount,doctor_share_total,reconciliation_status");
   invoiceQuery = applyInvoiceFilters(invoiceQuery, filters);
+  let attributionQuery = supabase.from("patient_marketing_attribution").select("patient_id,validated_source").not("validated_source", "is", null);
+  if (sourceFilter) attributionQuery = attributionQuery.eq("validated_source", sourceFilter);
   const [{ data: invoices, error: invoiceError }, { data: reconciliations, error: reconError }, { data: attributions, error: attributionError }] = await Promise.all([
     invoiceQuery,
     supabase.from("crm_invoice_reconciliation").select("invoice_no,patient_id,match_status,updated_at,id").in("match_status", ["matched", "approved_auto"]),
-    supabase.from("patient_marketing_attribution").select("patient_id,validated_source" ).not("validated_source", "is", null),
+    attributionQuery,
   ]);
   if (invoiceError) throw invoiceError;
   if (reconError) throw reconError;
@@ -783,6 +785,10 @@ async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters) {
 
 export const getMarketingDepartmentSummary = (filters: FinanceFilters) => unstable_cache(
   () => getMarketingDepartmentSummaryUncached(filters), ["finance-marketing-departments", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
+
+export const getFacebookDepartmentSummary = (filters: FinanceFilters) => unstable_cache(
+  () => getMarketingDepartmentSummaryUncached(filters, "facebook"), ["finance-facebook-departments", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
 )();
 
 async function getFacebookAttributionAuditUncached(filters: FinanceFilters) {
