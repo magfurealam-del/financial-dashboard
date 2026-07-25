@@ -585,7 +585,13 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
     }
   }
 
-  const patientIds = validInvoices.map((r: any) => r.patient_id).filter(Boolean);
+  // Include both raw invoice patients and CRM-corrected patients before loading
+  // the canonical attribution rollup. Otherwise corrected invoice identities can
+  // be missed and the Marketing summary can disagree with its audit controls.
+  const patientIds = Array.from(new Set([
+    ...validInvoices.map((r: any) => r.patient_id),
+    ...Array.from(reconciliationByInvoice.values()).map((r: any) => r.patient_id),
+  ].filter(Boolean)));
   const { data: patientAttributionRows, error: patientAttributionError } = await (patientIds.length
     ? supabase
         .from("patient_marketing_attribution")
@@ -633,7 +639,7 @@ export async function getMarketingSourceSummaryFiltered(filters: FinanceFilters)
     }
     const entry = byKey.get(key)!;
     entry.invoiceIds.add(inv.invoice_id);
-    if (inv.patient_id) entry.patientIds.add(inv.patient_id);
+    if (attributionPatientId) entry.patientIds.add(attributionPatientId);
     entry.gross += Number(inv.gross_amount) || 0;
     entry.net += Number(inv.net_amount) || 0;
     entry.collected += Number(inv.collected_amount) || 0;
