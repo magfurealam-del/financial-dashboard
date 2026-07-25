@@ -685,6 +685,13 @@ async function getMarketingSourceSummaryFilteredUncached(filters: FinanceFilters
     entry.doctorShare += Number(inv.doctor_share_total) || 0;
   }
 
+  const patientsBySource = new Map<string, Set<number>>();
+  for (const entry of byKey.values()) {
+    const patients = patientsBySource.get(entry.source) ?? new Set<number>();
+    for (const patientId of entry.patientIds) patients.add(patientId);
+    patientsBySource.set(entry.source, patients);
+  }
+
   return Array.from(byKey.values())
     .map((v) => {
       const invoiceCount = v.invoiceIds.size;
@@ -699,6 +706,7 @@ async function getMarketingSourceSummaryFilteredUncached(filters: FinanceFilters
         doctor_share_total: v.doctorShare,
         contribution_margin: v.net - v.doctorShare,
         avg_invoice_value: invoiceCount ? v.net / invoiceCount : null,
+        source_patient_count: patientsBySource.get(v.source)?.size ?? v.patientIds.size,
       };
     })
     .sort((a, b) => b.net_revenue - a.net_revenue);

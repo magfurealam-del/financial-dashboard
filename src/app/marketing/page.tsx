@@ -129,7 +129,9 @@ export default async function MarketingPage({
                 if (entries.length <= 1) return methodRows;
 
                 const totalInvoiceCount = entries.reduce((s: number, r: any) => s + Number(r.invoice_count || 0), 0);
-                const totalPatientCount = entries.reduce((s: number, r: any) => s + Number(r.patient_count || 0), 0);
+                // Method rows can share patients. Source totals use the union of
+                // canonical patient IDs returned by the attribution query.
+                const totalPatientCount = Number(entries[0]?.source_patient_count ?? entries.reduce((s: number, r: any) => s + Number(r.patient_count || 0), 0));
                 const totalGross = entries.reduce((s: number, r: any) => s + Number(r.gross_revenue || 0), 0);
                 const totalNetForSource = entries.reduce((s: number, r: any) => s + Number(r.net_revenue || 0), 0);
                 const totalCollected = entries.reduce((s: number, r: any) => s + Number(r.collected_revenue || 0), 0);
