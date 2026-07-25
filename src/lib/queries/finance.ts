@@ -740,7 +740,7 @@ export async function getExecutiveTrustSummary(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   const [{ data: invoices, error: invoiceError }, { count: reconciliationIssues, error: reconciliationError }, { data: attributed, error: attributionError }] = await Promise.all([
     supabase.from("vw_finance_invoice_summary").select("invoice_id,patient_id,needs_review,doctor_id,doctor_name,net_amount,outstanding_amount").gte("invoice_date", filters.dateFrom).lte("invoice_date", filters.dateTo),
-    supabase.from("vw_finance_reconciliation_issues").select("id", { count: "exact", head: true }),
+    supabase.from("vw_finance_reconciliation_issues").select("issue_type", { count: "exact", head: true }),
     supabase.from("patient_marketing_attribution").select("patient_id,confidence").not("validated_source", "is", null),
   ]);
   if (invoiceError) throw invoiceError;
