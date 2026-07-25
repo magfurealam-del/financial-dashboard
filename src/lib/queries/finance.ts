@@ -1,5 +1,6 @@
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { FinanceFilters } from "@/lib/filters";
+import { unstable_cache } from "next/cache";
 
 type InvoiceSummaryRow = {
   invoice_id: number;
@@ -674,6 +675,9 @@ export async function getDoctorOptions() {
   if (error) throw error;
   return data ?? [];
 }
+
+export const getDepartmentOptionsCached = unstable_cache(getDepartmentOptions, ["finance-department-options"], { revalidate: 3600 });
+export const getDoctorOptionsCached = unstable_cache(getDoctorOptions, ["finance-doctor-options"], { revalidate: 3600 });
 
 export async function getReceivablesSummary(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
