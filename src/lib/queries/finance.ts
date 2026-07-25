@@ -720,6 +720,71 @@ export const getMarketingSourceSummaryFiltered = (filters: FinanceFilters) => un
   () => getMarketingSourceSummaryFilteredUncached(filters), ["finance-marketing", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
 )();
 
+async function getMarketingDepartmentSummaryUncached(filters: FinanceFilters) {
+  const supabase = getSupabaseServerClient();
+  let invoiceQuery = supabase.from("vw_finance_invoice_summary").select("invoice_id,invoice_no,department,patient_id,net_amount,collected_amount,outstanding_amount,doctor_share_total,reconciliation_status");
+  invoiceQuery = applyInvoiceFilters(invoiceQuery, filters);
+  const [{ data: invoices, error: invoiceError }, { data: reconciliations, error: reconError }, { data: attributions, error: attributionError }] = await Promise.all([
+    invoiceQuery,
+    supabase.from("crm_invoice_reconciliation").select("invoice_no,patient_id,match_status,updated_at,id").in("match_status", ["matched", "approved_auto"]),
+    supabase.from("patient_marketing_attribution").select("patient_id,validated_source" ).not("validated_source", "is", null),
+  ]);
+  if (invoiceError) throw invoiceError;
+  if (reconError) throw reconError;
+  if (attributionError) throw attributionError;
+
+  const reconByInvoice = new Map<string, any>();
+  for (const row of (reconciliations ?? []) as any[]) {
+    const current = reconByInvoice.get(row.invoice_no);
+    if (!current || new Date(row.updated_at ?? 0).getTime() > new Date(current.updated_at ?? 0).getTime()) reconByInvoice.set(row.invoice_no, row);
+  }
+  const attributedPatients = new Set((attributions ?? []).map((row: any) => row.patient_id));
+  const byDepartment = new Map<string, { invoiceIds: Set<number>; patientIds: Set<number>; attributedInvoiceIds: Set<number>; attributedPatientIds: Set<number>; net: number; attributedNet: number; collected: number; attributedCollected: number; outstanding: number; doctorShare: number; contribution: number }>();
+  for (const invoice of (invoices ?? []) as any[]) {
+    if (invoice.reconciliation_status === "needs_review") continue;
+    const department = invoice.department ?? "Unmapped";
+    const entry = byDepartment.get(department) ?? { invoiceIds: new Set(), patientIds: new Set(), attributedInvoiceIds: new Set(), attributedPatientIds: new Set(), net: 0, attributedNet: 0, collected: 0, attributedCollected: 0, outstanding: 0, doctorShare: 0, contribution: 0 };
+    const recon = reconByInvoice.get(invoice.invoice_no);
+    const patientId = recon?.patient_id ?? invoice.patient_id;
+    const isAttributed = patientId && attributedPatients.has(patientId);
+    entry.invoiceIds.add(invoice.invoice_id);
+    if (patientId) entry.patientIds.add(patientId);
+    entry.net += Number(invoice.net_amount) || 0;
+    entry.collected += Number(invoice.collected_amount) || 0;
+    entry.outstanding += Number(invoice.outstanding_amount) || 0;
+    entry.doctorShare += Number(invoice.doctor_share_total) || 0;
+    entry.contribution += (Number(invoice.net_amount) || 0) - (Number(invoice.doctor_share_total) || 0);
+    if (isAttributed) {
+      entry.attributedInvoiceIds.add(invoice.invoice_id);
+      if (patientId) entry.attributedPatientIds.add(patientId);
+      entry.attributedNet += Number(invoice.net_amount) || 0;
+      entry.attributedCollected += Number(invoice.collected_amount) || 0;
+    }
+    byDepartment.set(department, entry);
+  }
+  return Array.from(byDepartment.entries()).map(([department, value]) => ({
+    department,
+    invoice_count: value.invoiceIds.size,
+    patient_count: value.patientIds.size,
+    net_revenue: value.net,
+    attributed_invoice_count: value.attributedInvoiceIds.size,
+    attributed_patient_count: value.attributedPatientIds.size,
+    attributed_net_revenue: value.attributedNet,
+    unattributed_net_revenue: value.net - value.attributedNet,
+    attribution_coverage: value.net ? (value.attributedNet / value.net) * 100 : 0,
+    collected_revenue: value.collected,
+    attributed_collected_revenue: value.attributedCollected,
+    outstanding_revenue: value.outstanding,
+    doctor_share_total: value.doctorShare,
+    contribution_margin: value.contribution,
+    collection_rate: value.net ? (value.collected / value.net) * 100 : 0,
+  })).sort((a, b) => b.net_revenue - a.net_revenue);
+}
+
+export const getMarketingDepartmentSummary = (filters: FinanceFilters) => unstable_cache(
+  () => getMarketingDepartmentSummaryUncached(filters), ["finance-marketing-departments", JSON.stringify(filters)], { revalidate: 86400, tags: ["finance-dashboard"] }
+)();
+
 async function getFacebookAttributionAuditUncached(filters: FinanceFilters) {
   const supabase = getSupabaseServerClient();
   let invoiceQuery = supabase.from("invoices").select("id,invoice_no,patient_id,net_bill,total_collected,total_due,invoice_status,needs_review");

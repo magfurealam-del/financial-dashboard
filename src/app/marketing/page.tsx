@@ -1,4 +1,4 @@
-import { getMarketingSourceSummaryFiltered, getFacebookAttributionAudit } from "@/lib/queries/finance";
+import { getMarketingSourceSummaryFiltered, getFacebookAttributionAudit, getMarketingDepartmentSummary } from "@/lib/queries/finance";
 import { parseFiltersFromSearchParams } from "@/lib/filters";
 import { formatBDT, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -25,7 +25,7 @@ export default async function MarketingPage({
 }) {
   const resolvedParams = await searchParams;
   const filters = parseFiltersFromSearchParams(resolvedParams);
-  const [rows, facebookAudit] = await Promise.all([getMarketingSourceSummaryFiltered(filters), getFacebookAttributionAudit(filters)]);
+  const [rows, facebookAudit, departmentRows] = await Promise.all([getMarketingSourceSummaryFiltered(filters), getFacebookAttributionAudit(filters), getMarketingDepartmentSummary(filters)]);
   const qs = new URLSearchParams(resolvedParams as Record<string, string>).toString();
 
   const bySource = rows.reduce<Record<string, typeof rows>>((acc, r: any) => {
@@ -160,6 +160,11 @@ export default async function MarketingPage({
           </tbody>
         </table>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4"><h2 className="text-sm font-semibold text-slate-900">Revenue and attribution by department</h2><p className="mt-1 text-xs text-slate-500">Attributed revenue uses the canonical patient marketing source after CRM patient correction. Department totals are at invoice grain and exclude needs-review records.</p></div>
+        <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th className="px-3 py-2">Department</th><th className="px-3 py-2 text-right">Invoices</th><th className="px-3 py-2 text-right">Patients</th><th className="px-3 py-2 text-right">Net revenue</th><th className="px-3 py-2 text-right">Attributed invoices</th><th className="px-3 py-2 text-right">Attributed patients</th><th className="px-3 py-2 text-right">Attributed net</th><th className="px-3 py-2 text-right">Unattributed net</th><th className="px-3 py-2 text-right">Coverage</th><th className="px-3 py-2 text-right">Collection rate</th><th className="px-3 py-2 text-right">Outstanding</th><th className="px-3 py-2 text-right">Contribution</th></tr></thead><tbody>{departmentRows.map((row: any) => <tr key={row.department} className="border-t border-slate-100 hover:bg-slate-50"><td className="px-3 py-2 font-medium">{row.department}</td><td className="px-3 py-2 text-right">{formatNumber(row.invoice_count)}</td><td className="px-3 py-2 text-right">{formatNumber(row.patient_count)}</td><td className="px-3 py-2 text-right">{formatBDT(row.net_revenue)}</td><td className="px-3 py-2 text-right">{formatNumber(row.attributed_invoice_count)}</td><td className="px-3 py-2 text-right">{formatNumber(row.attributed_patient_count)}</td><td className="px-3 py-2 text-right font-medium text-indigo-700">{formatBDT(row.attributed_net_revenue)}</td><td className="px-3 py-2 text-right">{formatBDT(row.unattributed_net_revenue)}</td><td className="px-3 py-2 text-right">{row.attribution_coverage.toFixed(1)}%</td><td className="px-3 py-2 text-right">{row.collection_rate.toFixed(1)}%</td><td className="px-3 py-2 text-right">{formatBDT(row.outstanding_revenue)}</td><td className="px-3 py-2 text-right">{formatBDT(row.contribution_margin)}</td></tr>)}{departmentRows.length === 0 && <tr><td colSpan={12} className="px-3 py-6 text-center text-slate-400">No department data for this period.</td></tr>}</tbody></table></div>
+      </section>
 
       <section className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-5">
         <div className="mb-4"><h2 className="text-sm font-semibold text-slate-900">Facebook attribution audit and validation</h2><p className="mt-1 text-xs text-slate-600">This control table tests duplicate invoices, patient deduplication, CRM correction precedence, and financial summation for the selected period.</p></div>
